@@ -12,5 +12,5 @@ Pod::Spec.new do |s|
   s.swift_version = '5.9'
   s.source       = { :git => 'https://github.com/fengmingdev/RouterKit.git', :tag => s.version.to_s }
   s.source_files = 'Sources/**/*.swift'
-  s.resources    = 'Documentation/**/*.md'
+  s.resources    = ['Documentation/CoreConcepts/**/*.md', 'Documentation/APIReference/**/*.md']
 end
