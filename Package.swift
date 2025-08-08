@@ -32,9 +32,7 @@ let package = Package(
         .target(
             name: "RouterKit",
             dependencies: [],
-            path: "Sources",
-            resources: [.process("Documentation")],
-            publicHeadersPath: "include"),
+            path: "Sources"),
         .testTarget(
             name: "RouterKitTests",
             dependencies: ["RouterKit"],

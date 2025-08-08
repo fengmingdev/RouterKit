@@ -10,7 +10,5 @@
 # 如需添加依赖，请在此处添加
 # github "Alamofire/Alamofire" ~> 5.0
 
-# 导出框架时包含文档
---use-xcframeworks
---cache-builds
---verbose
+# 导出框架时使用以下命令
+# carthage build --use-xcframeworks --cache-builds --verbose
