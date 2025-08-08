@@ -1,0 +1,50 @@
+use_frameworks!
+
+platform :ios, '13.0'
+
+# 指定工作空间
+workspace 'Example-iOS.xcworkspace'
+
+#指定主项目
+project 'MyMainProject/MyMainProject.xcodeproj'
+
+# 使用抽象目标共享公共依赖
+abstract_target 'CommonDependencies' do
+  pod 'RouterKit', :path => '../../'
+
+  target 'MyMainProject' do
+    end
+
+  target 'LoginModule' do
+    project 'LoginModule/LoginModule.xcodeproj'
+  end
+
+  target 'MessageModule' do
+    project 'MessageModule/MessageModule.xcodeproj'
+  end
+end
+
+post_install do |installer|
+  # Set deployment target for all pods
+  installer.pods_project.targets.each do |target|
+    target.build_configurations.each do |config|
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
+    end
+  end
+
+  # Add framework search paths for LoginModule and MessageModule in MyMainProject's xcconfig files
+  ['debug', 'release'].each do |config|
+    xcconfig_path = File.join('Pods', 'Target Support Files', 'Pods-MyMainProject', "Pods-MyMainProject.\#{config}.xcconfig")
+    if File.exist?(xcconfig_path)
+      xcconfig = File.read(xcconfig_path)
+      # Directly set the framework search paths
+      new_line = "FRAMEWORK_SEARCH_PATHS = $(inherited) \"\${PODS_CONFIGURATION_BUILD_DIR}/RouterKit\" \"\${PODS_CONFIGURATION_BUILD_DIR}/LoginModule\" \"\${PODS_CONFIGURATION_BUILD_DIR}/MessageModule\""
+      xcconfig = xcconfig.sub(/^FRAMEWORK_SEARCH_PATHS = .*$/, new_line)
+      # If the line doesn't exist, add it
+      if xcconfig == File.read(xcconfig_path)
+        xcconfig += "\n" + new_line
+      end
+      File.open(xcconfig_path, 'w') { |file| file.write(xcconfig) }
+    end
+  end
+end

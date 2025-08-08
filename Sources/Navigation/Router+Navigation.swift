@@ -145,10 +145,10 @@ extension Router: UIViewControllerTransitioningDelegate {
         Task {
             do {
                 // 先执行拦截器链
-                let (url, params) = try await handleInterceptors(url: urlString, parameters: parameters ?? [:])
+                let (url, params, presentationStyle) = try await handleInterceptors(url: urlString, parameters: parameters ?? [:])
                 
                 // 拦截通过，执行导航
-                self.performNavigation(urlString: url,
+                self.performNavigation(urlString: url, presentationStyle: presentationStyle,
                                        parameters: params,
                                        sourceVC: sourceVC,
                                        type: type,
@@ -172,7 +172,7 @@ extension Router: UIViewControllerTransitioningDelegate {
     ///   - parameters: 路由参数
     /// - Returns: 处理后的URL和参数
     /// - Throws: 拦截失败时抛出错误
-    private func handleInterceptors(url: String, parameters: RouterParameters) async throws -> (String, RouterParameters) {
+    private func handleInterceptors(url: String, parameters: RouterParameters) async throws -> (String, RouterParameters, NavigationPresentationStyle?) {
         // 通过actor安全获取拦截器列表
         let interceptors = await state.getInterceptors()
         var currentUrl = url
@@ -186,14 +186,14 @@ extension Router: UIViewControllerTransitioningDelegate {
             index += 1
             
             // 使用withCheckedThrowingContinuation将回调转为async/await，并使用弱引用避免循环引用
-            let (redirectUrl, newParams) = try await withCheckedThrowingContinuation { [weak interceptor] continuation in
+            let (redirectUrl, newParams, presentationStyle) = try await withCheckedThrowingContinuation { [weak interceptor] continuation in
                 guard let interceptor = interceptor else { return }
-                interceptor.intercept(url: currentUrl, parameters: currentParams) { allowed, reason, url, params in
+                interceptor.intercept(url: currentUrl, parameters: currentParams) { allowed, reason, url, params, style in
                     if allowed {
-                        continuation.resume(returning: (url, params))
+                        continuation.resume(returning: (url ?? currentUrl, params ?? currentParams, style))
                     } else if let redirectUrl = url {
                         // 拦截并重定向
-                        continuation.resume(returning: (redirectUrl, params))
+                        continuation.resume(returning: (redirectUrl, params ?? currentParams, style))
                     } else {
                         continuation.resume(throwing: RouterError.interceptorRejected(reason ?? "未指定原因"))
                     }
@@ -201,15 +201,13 @@ extension Router: UIViewControllerTransitioningDelegate {
             }
             
             // 处理重定向和参数更新
-            if let redirectUrl = redirectUrl {
-                currentUrl = redirectUrl
-            }
-            if let newParams = newParams {
-                currentParams.merge(newParams) { $1 }
+            currentUrl = redirectUrl
+            currentParams.merge(newParams) { $1 }
+            if let presentationStyle = presentationStyle {
+                return (currentUrl, currentParams, presentationStyle)
             }
         }
-        
-        return (currentUrl, currentParams)
+        return (currentUrl, currentParams, nil)
     }
     
     /// 取消当前正在进行的导航
@@ -221,6 +219,7 @@ extension Router: UIViewControllerTransitioningDelegate {
 
     /// 执行实际导航操作
     private func performNavigation(urlString: String,
+                                   presentationStyle: NavigationPresentationStyle?,
                                    parameters: RouterParameters,
                                    sourceVC: UIViewController?,
                                    type: NavigationType,
@@ -249,6 +248,34 @@ extension Router: UIViewControllerTransitioningDelegate {
                 let targetVC = try await createViewController(for: url, parameters: parameters)
                 // 获取源视图控制器（默认顶层控制器）
                 let sourceVC = sourceVC ?? topMostViewController()
+                
+                // 根据拦截器提供的presentationStyle覆盖导航类型
+                var navigationType = type
+                var wrapInNavigationController = false
+                if let style = presentationStyle {
+                    switch style {
+                    case .push:
+                        navigationType = .push
+                    case .present:
+                        navigationType = .present
+                        wrapInNavigationController = false
+                    case .presentWithNavigation:
+                        navigationType = .present
+                        wrapInNavigationController = true
+                    case .replace:
+                        navigationType = .replace
+                    case .custom:
+                        // 自定义方式，保留原类型
+                        break
+                    }
+                    log("拦截器指定导航方式: \(style)", level: .info)
+                }
+                log("获取到的sourceVC: \(String(describing: Swift.type(of: sourceVC)))", level: .info)
+                if let nav = sourceVC.navigationController {
+                    log("sourceVC的导航控制器: \(String(describing: Swift.type(of: nav)))", level: .info)
+                } else {
+                    log("sourceVC没有导航控制器", level: .warning)
+                }
                 // 处理自定义动画（通过actor获取）
                 var animation: NavigationAnimatable?
                 if let animationId = animationId {
@@ -261,7 +288,7 @@ extension Router: UIViewControllerTransitioningDelegate {
                 }
                 
                 // 根据导航类型执行不同操作
-                switch type {
+                switch navigationType {
                 case .push:
                     log("执行push导航", level: .info)
                     try push(from: sourceVC, to: targetVC, animated: animated)
@@ -272,7 +299,12 @@ extension Router: UIViewControllerTransitioningDelegate {
                     
                 case .present:
                     log("执行present导航", level: .info)
-                    present(from: sourceVC, to: targetVC, animated: animated) {
+                    var presentingVC = targetVC
+                    if wrapInNavigationController {
+                        presentingVC = UINavigationController(rootViewController: targetVC)
+                        log("将目标VC包装在导航控制器中", level: .info)
+                    }
+                    present(from: sourceVC, to: presentingVC, animated: animated) {
                         // 清理动画引用
                         targetVC.transitioningDelegate = nil
                         self.currentAnimation = nil
@@ -540,22 +572,42 @@ extension Router: UIViewControllerTransitioningDelegate {
             .filter { $0.isKeyWindow }
             .first?.rootViewController
         
+        // 如果keyWindow没有根控制器，尝试从其他窗口获取
+        if topVC == nil {
+            log("无法从keyWindow获取根控制器，尝试从其他窗口获取", level: .warning)
+            topVC = UIApplication.shared.windows
+                .filter { $0.isKeyWindow }
+                .first?.rootViewController
+        }
+        
         // 遍历找到最顶层的presented控制器
         while let presentedVC = topVC?.presentedViewController {
             topVC = presentedVC
         }
         
-        return topVC! // 确保有根控制器
+        // 确保有根控制器
+        guard let topVC = topVC else {
+            log("无法获取到任何根控制器", level: .error)
+            fatalError("RouterKit: 无法获取到任何根控制器，请确保应用程序已正确设置窗口和根控制器")
+        }
+        
+        return topVC
     }
     
     // MARK: - 具体导航操作
 
     /// 执行push导航
     private func push(from source: UIViewController, to target: UIViewController, animated: Bool) throws {
-        guard let nav = source.navigationController else {
-            throw RouterError.navigationError("源控制器没有导航控制器，无法执行push")
+        // 如果source本身就是UINavigationController，则直接使用它
+        if let nav = source as? UINavigationController {
+            nav.pushViewController(target, animated: animated)
+        } else {
+            // 否则获取source的导航控制器
+            guard let nav = source.navigationController else {
+                throw RouterError.navigationError("源控制器没有导航控制器，无法执行push")
+            }
+            nav.pushViewController(target, animated: animated)
         }
-        nav.pushViewController(target, animated: animated)
     }
     
     /// 执行present导航

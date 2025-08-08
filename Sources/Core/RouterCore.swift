@@ -29,7 +29,7 @@ public protocol Routable: AnyObject {
 /// 路由管理器单例，负责模块管理、路由注册和分发
 public final class Router: NSObject, @unchecked Sendable {
     // 单例实例
-    static let shared = Router()
+    public static let shared = Router()
     override private init() {
         super.init()
         startModuleCleanupTimer()
@@ -142,7 +142,7 @@ public final class Router: NSObject, @unchecked Sendable {
 
     /// 注册模块
     /// - Parameter module: 模块实例
-    func registerModule<T: ModuleProtocol>(_ module: T) async {
+    public func registerModule<T: ModuleProtocol>(_ module: T) async {
         await state.registerModule(module)
         log("模块注册成功: \(module.moduleName)")
         notifyModuleStateChanged(module, .willLoad)
@@ -181,7 +181,7 @@ public final class Router: NSObject, @unchecked Sendable {
     
     /// 卸载模块
     /// - Parameter moduleName: 模块名称
-    func unregisterModule(_ moduleName: String) async {
+    public func unregisterModule(_ moduleName: String) async {
         guard let module = await state.unregisterModule(moduleName) else {
             log("模块未注册: \(moduleName)", level: .warning)
             return
@@ -210,21 +210,21 @@ public final class Router: NSObject, @unchecked Sendable {
     /// 检查模块是否已加载
     /// - Parameter moduleName: 模块名称
     /// - Returns: 是否已加载
-    func isModuleLoaded(_ moduleName: String) async -> Bool {
+    public func isModuleLoaded(_ moduleName: String) async -> Bool {
         return await state.isModuleLoaded(moduleName)
     }
     
     /// 获取模块实例（任意模块协议类型）
     /// - Parameter name: 模块名称
     /// - Returns: 模块实例（可选）
-    func getModule(_ name: String) async -> (any ModuleProtocol)? {
+    public func getModule(_ name: String) async -> (any ModuleProtocol)? {
         return await state.getModule(name)
     }
     
     /// 获取指定类型的模块实例
     /// - Parameter type: 模块类型
     /// - Returns: 模块实例（可选）
-    func getModule<T: ModuleProtocol>(_ type: T.Type) async -> T? {
+    public func getModule<T: ModuleProtocol>(_ type: T.Type) async -> T? {
         return await state.getModule(type)
     }
     
@@ -315,7 +315,7 @@ public final class Router: NSObject, @unchecked Sendable {
     ///   - priority: 路由优先级，数值越大优先级越高（默认为0）
     ///   - scheme: 路由命名空间（默认为空，表示全局命名空间）
     /// - Throws: 路由模式无效、已存在或模块未注册时抛出错误
-    func registerRoute(_ pattern: String, for routableType: Routable.Type, permission: RoutePermission? = nil, priority: Int = 0, scheme: String = "") async throws {
+    public func registerRoute(_ pattern: String, for routableType: Routable.Type, permission: RoutePermission? = nil, priority: Int = 0, scheme: String = "") async throws {
         let routePattern = try RoutePattern(pattern)
         
         // 检查模块是否已注册
@@ -335,7 +335,7 @@ public final class Router: NSObject, @unchecked Sendable {
     ///   - priority: 路由优先级，数值越大优先级越高（默认为0）
     ///   - scheme: 路由命名空间（默认为空，表示全局命名空间）
     /// - Throws: 路由模式无效或已存在时抛出错误
-    func registerDynamicRoute(_ pattern: String, for routableType: Routable.Type, permission: RoutePermission? = nil, priority: Int = 0, scheme: String = "") async throws {
+    public func registerDynamicRoute(_ pattern: String, for routableType: Routable.Type, permission: RoutePermission? = nil, priority: Int = 0, scheme: String = "") async throws {
         let routePattern = try RoutePattern(pattern)
         try await state.registerDynamicRoute(routePattern, routableType: routableType, permission: permission, priority: priority, scheme: scheme)
         log("动态路由注册成功: \(pattern) -> \(routableType), 优先级: \(priority), 命名空间: \(scheme.isEmpty ? "全局" : scheme)")
@@ -344,7 +344,7 @@ public final class Router: NSObject, @unchecked Sendable {
     /// 动态移除已注册的路由
     /// - Parameter pattern: 要移除的路由模式
     /// - Throws: 路由不存在时抛出错误
-    func unregisterDynamicRoute(_ pattern: String) async throws {
+    public func unregisterDynamicRoute(_ pattern: String) async throws {
         let routePattern = try RoutePattern(pattern)
         try await state.unregisterDynamicRoute(routePattern)
         log("动态路由移除成功: \(pattern)")
@@ -354,13 +354,13 @@ public final class Router: NSObject, @unchecked Sendable {
     
     /// 添加拦截器（自动按优先级排序）
     /// - Parameter interceptor: 拦截器实例
-    func addInterceptor(_ interceptor: RouterInterceptor) async {
+    public func addInterceptor(_ interceptor: RouterInterceptor) async {
         await state.addInterceptor(interceptor)
     }
     
     /// 移除拦截器
     /// - Parameter interceptor: 拦截器实例
-    func removeInterceptor(_ interceptor: RouterInterceptor) async {
+    public func removeInterceptor(_ interceptor: RouterInterceptor) async {
         await state.removeInterceptor(interceptor)
     }
     
@@ -368,20 +368,20 @@ public final class Router: NSObject, @unchecked Sendable {
     
     /// 注册转场动画
     /// - Parameter animation: 动画实例
-    func registerAnimation(_ animation: NavigationAnimatable) async {
+    public func registerAnimation(_ animation: NavigationAnimatable) async {
         await state.registerAnimation(animation)
     }
     
     /// 移除转场动画
     /// - Parameter identifier: 动画标识
-    func unregisterAnimation(_ identifier: String) async {
+    public func unregisterAnimation(_ identifier: String) async {
         await state.unregisterAnimation(identifier)
     }
     
     /// 获取转场动画
     /// - Parameter identifier: 动画标识
     /// - Returns: 动画实例（可选）
-    func getAnimation(_ identifier: String) async -> NavigationAnimatable? {
+    public func getAnimation(_ identifier: String) async -> NavigationAnimatable? {
         return await state.getAnimation(identifier)
     }
     
@@ -389,13 +389,13 @@ public final class Router: NSObject, @unchecked Sendable {
     
     /// 添加模块生命周期观察者
     /// - Parameter observer: 观察者实例
-    func addLifecycleObserver(_ observer: ModuleLifecycleObserver) {
+    public func addLifecycleObserver(_ observer: ModuleLifecycleObserver) {
         lifecycleObservers.append(observer)
     }
     
     /// 移除模块生命周期观察者
     /// - Parameter observer: 观察者实例
-    func removeLifecycleObserver(_ observer: ModuleLifecycleObserver) {
+    public func removeLifecycleObserver(_ observer: ModuleLifecycleObserver) {
         lifecycleObservers.remove(observer)
     }
     
