@@ -1,0 +1,11 @@
+.DS_Store
+.swiftpm
+Packages/
+.build/
+*.xcodeproj/
+*.xcworkspace/
+derivedData/
+.idea/
+.vscode/
+Pods/
+Podfile.lock
