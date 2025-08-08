@@ -1,3 +1,16 @@
-# 空文件或包含注释
+# Carthage配置文件
 # 本项目使用Carthage构建
+
+# 支持的平台
+# platform :ios, '13.0'
+# platform :osx, '11.0'
+# platform :tvos, '14.0'
+# platform :watchos, '7.0'
+
 # 如需添加依赖，请在此处添加
+# github "Alamofire/Alamofire" ~> 5.0
+
+# 导出框架时包含文档
+--use-xcframeworks
+--cache-builds
+--verbose
