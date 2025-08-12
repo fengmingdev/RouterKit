@@ -1,5 +1,5 @@
 Pod::Spec.new do |s|
-  s.name         = 'RouterKit'
+  s.name         = 'RouterKit-Swift'
   s.version      = '1.0.0'
   s.summary      = 'A powerful, modular routing framework for iOS applications.'
   s.description  = <<-DESC
@@ -10,7 +10,7 @@ Pod::Spec.new do |s|
   s.author       = { 'fengmingdev' => 'fengmingdev@gmail.com' }
   s.platform     = :ios, '13.0'
   s.swift_version = '5.9'
-  s.source       = { :git => 'https://github.com/fengmingdev/RouterKit.git', :tag => s.version.to_s }
+  s.source       = { :git => 'https://github.com/fengmingdev/RouterKit.git', :tag => 'v' + s.version.to_s }
   s.source_files = 'Sources/**/*.swift'
-  s.resources    = ['Documentation/CoreConcepts/**/*.md', 'Documentation/APIReference/**/*.md']
+  s.resources    = 'README.md'
 end
