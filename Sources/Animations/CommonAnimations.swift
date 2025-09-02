@@ -5,6 +5,7 @@
 //  Created by fengming on 2025/8/4.
 //
 
+#if canImport(UIKit)
 #if os(iOS) || os(tvOS)
 import UIKit
 #elseif os(macOS)
@@ -337,3 +338,4 @@ enum AnimationType {
     case scale       // 缩放
     case flip        // 翻转
 }
+#endif

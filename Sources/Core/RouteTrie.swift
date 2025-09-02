@@ -62,22 +62,127 @@ public actor RouteTrie {
         currentNode.routePatterns.sort { $0.priority > $1.priority }
     }
 
-    // MARK: - 查找路由模式
+    // MARK: - 查找路由模式（优化版本）
     func find(_ pathComponents: [String]) -> (pattern: RoutePattern, parameters: RouterParameters)? {
+        return findInTrie(pathComponents, node: root, componentIndex: 0, parameters: [:])
+    }
+    
+    // MARK: - 在Trie树中递归查找
+    private func findInTrie(_ pathComponents: [String], node: RouteTrieNode, componentIndex: Int, parameters: RouterParameters) -> (pattern: RoutePattern, parameters: RouterParameters)? {
+        // 如果已经匹配完所有路径组件
+        if componentIndex == pathComponents.count {
+            if node.isEndOfPattern && !node.routePatterns.isEmpty {
+                // 返回优先级最高的模式（已按优先级排序）
+                let bestPattern = node.routePatterns[0]
+                return (bestPattern.pattern, parameters)
+            }
+            return nil
+        }
+        
+        let currentComponent = pathComponents[componentIndex]
         var bestMatch: (pattern: RoutePattern, parameters: RouterParameters)?
         var bestPriority = Int.min
-
-        // 遍历所有可能的匹配模式
-        for (pattern, priority) in getAllPatterns() {
-            if let parameters = matchPattern(pattern, with: pathComponents) {
+        
+        // 1. 尝试精确匹配（字面量）
+        if let literalChild = node.children[currentComponent] {
+            if let match = findInTrie(pathComponents, node: literalChild, componentIndex: componentIndex + 1, parameters: parameters) {
+                let priority = getPriorityForPattern(match.pattern, in: literalChild)
                 if priority > bestPriority {
-                    bestMatch = (pattern, parameters)
+                    bestMatch = match
+                    bestPriority = priority
+                }
+            }
+        }
+        
+        // 2. 尝试参数匹配
+        if let paramChild = node.parameterChild {
+            // 获取参数名（从第一个匹配的模式中提取）
+            if let paramName = getParameterName(from: paramChild, componentIndex: componentIndex) {
+                var newParameters = parameters
+                newParameters[paramName] = currentComponent
+                
+                if let match = findInTrie(pathComponents, node: paramChild, componentIndex: componentIndex + 1, parameters: newParameters) {
+                    let priority = getPriorityForPattern(match.pattern, in: paramChild)
+                    if priority > bestPriority {
+                        bestMatch = match
+                        bestPriority = priority
+                    }
+                }
+            }
+        }
+        
+        // 3. 尝试正则表达式匹配
+        if let (regexChild, regexPattern) = node.regexChild {
+            if let regex = try? NSRegularExpression(pattern: regexPattern) {
+                let range = NSRange(location: 0, length: currentComponent.utf16.count)
+                if let match = regex.firstMatch(in: currentComponent, range: range) {
+                    var newParameters = parameters
+                    
+                    // 提取捕获组（如果有的话）
+                    if let captureNames = getCaptureNames(from: regexChild, componentIndex: componentIndex) {
+                        for (captureIndex, captureName) in captureNames.enumerated() {
+                            let captureRange = match.range(at: captureIndex + 1)
+                            if captureRange.location != NSNotFound {
+                                let captureValue = (currentComponent as NSString).substring(with: captureRange)
+                                newParameters[captureName] = captureValue
+                            }
+                        }
+                    }
+                    
+                    if let trieMatch = findInTrie(pathComponents, node: regexChild, componentIndex: componentIndex + 1, parameters: newParameters) {
+                        let priority = getPriorityForPattern(trieMatch.pattern, in: regexChild)
+                        if priority > bestPriority {
+                            bestMatch = trieMatch
+                            bestPriority = priority
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 4. 尝试通配符匹配（优先级最低）
+        if let wildcardChild = node.wildcardChild {
+            if let match = findInTrie(pathComponents, node: wildcardChild, componentIndex: componentIndex + 1, parameters: parameters) {
+                let priority = getPriorityForPattern(match.pattern, in: wildcardChild)
+                if priority > bestPriority {
+                    bestMatch = match
                     bestPriority = priority
                 }
             }
         }
         
         return bestMatch
+    }
+    
+    // MARK: - 辅助方法
+    
+    /// 获取模式的优先级
+    private func getPriorityForPattern(_ pattern: RoutePattern, in node: RouteTrieNode) -> Int {
+        return node.routePatterns.first { $0.pattern == pattern }?.priority ?? Int.min
+    }
+    
+    /// 从节点中获取参数名
+    private func getParameterName(from node: RouteTrieNode, componentIndex: Int) -> String? {
+        for (pattern, _) in node.routePatterns {
+            if componentIndex < pattern.components.count {
+                if case .parameter(let name, _) = pattern.components[componentIndex] {
+                    return name
+                }
+            }
+        }
+        return nil
+    }
+    
+    /// 从节点中获取捕获组名称
+    private func getCaptureNames(from node: RouteTrieNode, componentIndex: Int) -> [String]? {
+        for (pattern, _) in node.routePatterns {
+            if componentIndex < pattern.components.count {
+                if case .regex(_, let captureNames) = pattern.components[componentIndex] {
+                    return captureNames
+                }
+            }
+        }
+        return nil
     }
     
     // MARK: - 获取所有注册的模式

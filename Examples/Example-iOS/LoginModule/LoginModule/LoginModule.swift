@@ -6,7 +6,7 @@
 //
 
 import UIKit
-import RouterKit
+import RouterKit_Swift
 
 /// 认证模块，处理登录、注册等功能
 public class LoginModule: ModuleProtocol, @unchecked Sendable {

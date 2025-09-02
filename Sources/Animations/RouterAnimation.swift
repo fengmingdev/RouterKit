@@ -5,6 +5,7 @@
 //  Created by fengming on 2025/8/4.
 //
 
+#if canImport(UIKit)
 import UIKit
 
 // MARK: - 导航动画协议
@@ -92,3 +93,5 @@ class FadeAnimation: NavigationAnimatable {
         }
     }
 }
+
+#endif

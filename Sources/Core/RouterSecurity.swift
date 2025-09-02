@@ -5,7 +5,9 @@
 //
 
 import Foundation
+#if canImport(UIKit)
 import UIKit
+#endif
 
 // MARK: - 参数验证和清理
 /// 路由安全工具类，负责参数验证、清理和权限控制

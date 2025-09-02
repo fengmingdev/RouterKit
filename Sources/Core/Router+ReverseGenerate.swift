@@ -7,10 +7,11 @@
 
 import Foundation
 
+@available(iOS 13.0, macOS 10.15, *)
 extension Router {
     /// 根据Routable类型和参数生成对应的URL
     /// - Parameters:
-    ///   - routableType: 页面类型
+    ///   - routableType: Routable类型
     ///   - parameters: 参数
     /// - Returns: 生成的URL字符串（可选）
     func generateURL(for routableType: Routable.Type, parameters: RouterParameters? = nil) async -> String? {

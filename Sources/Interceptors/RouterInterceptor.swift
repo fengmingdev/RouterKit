@@ -56,6 +56,7 @@ public protocol RouterInterceptor: AnyObject {
 
 // MARK: - 基础拦截器
 /// 拦截器基类，提供默认实现
+@available(iOS 13.0, macOS 10.15, *)
 open class BaseInterceptor: RouterInterceptor {
     open var priority: InterceptorPriority = .normal  // 默认优先级
     open var isAsync: Bool = false                    // 默认同步执行
@@ -66,8 +67,9 @@ open class BaseInterceptor: RouterInterceptor {
     }
     
     /// 日志打印方法（供子类使用）
-    open func log(_ message: String) {
-        RouterLogger.shared.log(message, level: .info)
+    @available(iOS 13.0, macOS 10.15, *)
+    open func log(_ message: String) async {
+        await RouterLogger.shared.log(message, level: .info)
     }
     
     /// 默认实现：允许所有路由

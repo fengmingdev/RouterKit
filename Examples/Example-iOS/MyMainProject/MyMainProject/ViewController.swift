@@ -6,7 +6,7 @@
 //
 
 import UIKit
-import RouterKit
+import RouterKit_Swift
 
 class ViewController: UIViewController {
 

@@ -7,7 +7,7 @@
 
 import Foundation
 import UIKit
-import RouterKit
+import RouterKit_Swift
 
 /// 登录视图控制器
 public class LoginViewController: UIViewController, Routable {

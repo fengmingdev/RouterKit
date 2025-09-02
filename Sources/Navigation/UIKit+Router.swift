@@ -6,6 +6,7 @@
 //
 
 import Foundation
+#if canImport(UIKit)
 import UIKit
 
 // MARK: - UIViewController扩展
@@ -22,7 +23,8 @@ extension UIViewController {
              parameters: RouterParameters? = nil,
              animated: Bool = true,
              animationId: String? = nil,
-             completion: @escaping RouterCompletion = { _ in }) {
+             completion: @escaping RouterCompletion = { _ in }
+) {
         Router.push(
             to: url,
             parameters: parameters,
@@ -145,3 +147,5 @@ extension UIView {
         return nil
     }
 }
+
+#endif

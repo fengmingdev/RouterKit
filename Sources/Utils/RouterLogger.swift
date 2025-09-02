@@ -22,7 +22,7 @@ public enum LogLevel: Int, Comparable {
 }
 
 /// 日志输出协议，支持自定义日志输出方式
-protocol LogOutput {
+public protocol LogOutput {
     func log(_ message: String, level: LogLevel, file: String, line: Int, function: String)
 }
 
@@ -30,7 +30,7 @@ protocol LogOutput {
 class ConsoleLogOutput: LogOutput {
     func log(_ message: String, level: LogLevel, file: String, line: Int, function: String) {
         let fileName = (file as NSString).lastPathComponent
-        let timestamp = Date().toString(format: "yyyy-MM-dd HH:mm:ss.SSS")
+        let timestamp = Date().formatted("yyyy-MM-dd HH:mm:ss.SSS")
         print("\(timestamp) [\(level)] \(fileName):\(line)\n \(function) - \(message)\n")
     }
 }
@@ -51,7 +51,7 @@ class FileLogOutput: LogOutput {
     
     func log(_ message: String, level: LogLevel, file: String, line: Int, function: String) {
         let fileName = (file as NSString).lastPathComponent
-        let timestamp = Date().toString(format: "yyyy-MM-dd HH:mm:ss.SSS")
+        let timestamp = Date().formatted("yyyy-MM-dd HH:mm:ss.SSS")
         let logLine = "\(timestamp) [\(level)] \(fileName):\(line) \(function) - \(message)\n"
         
         // 异步写入日志
@@ -68,6 +68,7 @@ class FileLogOutput: LogOutput {
                         fileHandle.write(data)
                         fileHandle.closeFile()
                     }
+
                 } else {
                     try? data.write(to: logFileURL)
                 }
@@ -91,7 +92,7 @@ class FileLogOutput: LogOutput {
             let attributes = try FileManager.default.attributesOfItem(atPath: fileURL.path)
             if let fileSize = attributes[.size] as? UInt64, fileSize >= maxFileSize {
                 // 文件超过大小限制，重命名现有文件
-                let timestamp = Date().toString(format: "yyyy-MM-dd_HH-mm-ss")
+                let timestamp = Date().formatted("yyyy-MM-dd_HH-mm-ss")
                 let rotatedFileName = "router_log_\(timestamp).txt"
                 let rotatedFileURL = logDirectory.appendingPathComponent(rotatedFileName)
                 try FileManager.default.moveItem(at: fileURL, to: rotatedFileURL)
@@ -118,7 +119,7 @@ class RemoteLogOutput: LogOutput {
     
     func log(_ message: String, level: LogLevel, file: String, line: Int, function: String) {
         let fileName = (file as NSString).lastPathComponent
-        let timestamp = Date().toString(format: "yyyy-MM-dd HH:mm:ss.SSS")
+        let timestamp = Date().formatted("yyyy-MM-dd HH:mm:ss.SSS")
         let logLine = "\(timestamp) [\(level)] \(fileName):\(line) \(function) - \(message)"
         
         // 添加到缓冲区
@@ -189,6 +190,7 @@ class RemoteLogOutput: LogOutput {
 }
 
 // MARK: - 日志管理器
+@available(iOS 13.0, macOS 10.15, *)
 public actor RouterLogger {
     public static let shared = RouterLogger()
     private init() {}
@@ -229,8 +231,11 @@ public actor RouterLogger {
                 if let config = try JSONSerialization.jsonObject(with: data) as? [String: String],
                    let logLevelString = config["logLevel"],
                    let logLevel = LogLevel(rawValue: Int(logLevelString) ?? -1) {
-                    Task {
-                        await RouterLogger.shared.setMinimumLogLevel(logLevel)
+
+                    DispatchQueue.main.async {
+                        Task {
+                            await RouterLogger.shared.setMinimumLogLevel(logLevel)
+                        }
                     }
                 }
             } catch {
@@ -246,10 +251,10 @@ public actor RouterLogger {
              line: Int = #line,
              function: String = #function) async {
         // 过滤低于最小级别的日志
-        guard level >= minimumLevel else { return }
+        guard level >= self.minimumLevel else { return }
 
         // 读取当前输出渠道的快照
-        let outputs = _outputs
+        let outputs = self._outputs
 
         // 向所有输出渠道发送日志
         outputs.forEach {
@@ -261,7 +266,7 @@ public actor RouterLogger {
 // MARK: - 日期格式化扩展
 extension Date {
     /// 转换为指定格式的字符串
-    func toString(format: String) -> String {
+    func formatted(_ format: String) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = format
         formatter.locale = Locale.current

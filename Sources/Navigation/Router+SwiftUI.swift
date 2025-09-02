@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+#if canImport(UIKit)
 import UIKit
 
 // MARK: - SwiftUI视图路由协议
@@ -103,3 +104,5 @@ extension UIViewController {
         return self
     }
 }
+
+#endif

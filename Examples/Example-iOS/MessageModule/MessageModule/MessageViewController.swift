@@ -6,16 +6,16 @@
 //
 
 import UIKit
-import RouterKit
+import RouterKit_Swift
 
 // 消息视图控制器
 public class MessageViewController: UIViewController, Routable {
     
-    public static func viewController(with parameters: RouterKit.RouterParameters?) -> UIViewController? {
+    public static func viewController(with parameters: RouterParameters?) -> UIViewController? {
         return MessageViewController()
     }
     
-    public static func performAction(_ action: String, parameters: RouterKit.RouterParameters?, completion: @escaping RouterKit.RouterCompletion) {
+    public static func performAction(_ action: String, parameters: RouterParameters?, completion: @escaping RouterCompletion) {
         if action == "updateMessage" {
             // 执行更新消息的操作
             completion(.success("消息更新成功"))

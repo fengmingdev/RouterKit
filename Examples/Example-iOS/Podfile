@@ -10,7 +10,7 @@ project 'MyMainProject/MyMainProject.xcodeproj'
 
 # 使用抽象目标共享公共依赖
 abstract_target 'CommonDependencies' do
-  pod 'RouterKit', :path => '../../'
+  pod 'RouterKit-Swift', :path => '../../RouterKit-Swift.podspec'
 
   target 'MyMainProject' do
     end

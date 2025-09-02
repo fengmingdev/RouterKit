@@ -8,6 +8,7 @@ import Foundation
 
 // MARK: - 路由命名空间管理
 /// 命名空间管理器，用于隔离不同模块或功能的路由
+@available(iOS 13.0, macOS 10.15, *)
 public class RouterNamespace {
     /// 命名空间名称
     public let name: String
@@ -18,6 +19,7 @@ public class RouterNamespace {
     /// - Parameters:
     ///   - name: 命名空间名称
     ///   - router: 父路由管理器
+    @available(iOS 13.0, macOS 10.15, *)
     init(name: String, router: Router) {
         self.name = name
         self.router = router
@@ -62,6 +64,7 @@ public class RouterNamespace {
 }
 
 // MARK: - 为Router添加命名空间支持
+@available(iOS 13.0, macOS 10.15, *)
 extension Router {
 
     

@@ -6,7 +6,7 @@
 //
 
 import UIKit
-import RouterKit
+import RouterKit_Swift
 
 /// 消息模块，处理消息列表、详情等功能
 public class MessageModule: ModuleProtocol, @unchecked Sendable {

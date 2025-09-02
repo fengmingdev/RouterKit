@@ -5,6 +5,7 @@
 //  Created by fengming on 2025/8/4.
 //
 
+#if canImport(UIKit)
 import UIKit
 
 /// 路由导航参数构建器，支持链式调用
@@ -167,3 +168,5 @@ extension Router {
         return topVC
     }
 }
+
+#endif

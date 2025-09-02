@@ -33,6 +33,7 @@ extension NSApplication {
 #endif
 
 /// 深度链接处理类，支持从外部唤起App内页面
+@available(iOS 13.0, macOS 10.15, *)
 final class DeepLinkHandler {
     static let shared = DeepLinkHandler()
     private init() {}
@@ -99,8 +100,9 @@ final class DeepLinkHandler {
 
         // 执行路由跳转
         do {
-            try await withCheckedThrowingContinuation { continuation in
-                Router.shared.navigate(to: path) { result in
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                #if canImport(UIKit)
+                Router.shared.navigate(to: path, parameters: nil, from: nil, type: .push, animated: true, animationId: nil, completion: { result in
                     switch result {
                     case .success:
                         Router.shared.log("成功处理外部链接: \(urlString)", level: .info)
@@ -109,7 +111,10 @@ final class DeepLinkHandler {
                         Router.shared.log("处理外部链接失败: \(error)", level: .error)
                         continuation.resume(throwing: error)
                     }
-                }
+                })
+                #else
+                continuation.resume(throwing: RouterError.unsupportedAction("UIKit navigation not available on this platform"))
+                #endif
             }
             return true
         } catch {
@@ -128,12 +133,15 @@ final class DeepLinkHandler {
     /// - Parameter sources: 信任的来源应用Bundle ID列表
     func addTrustedSources(_ sources: [String]) {
         trustedSources.formUnion(sources)
-        Router.shared.log("已添加信任的来源应用: \(sources.joined(separator:","))", level: .info)
+        if #available(iOS 13.0, macOS 10.15, *) {
+            Router.shared.log("已添加信任的来源应用: \(sources.joined(separator:","))", level: .info)
+        }
     }
     
     /// 验证URL路径是否安全
     /// - Parameter path: URL路径
     /// - Returns: 是否安全
+    @available(iOS 13.0, macOS 10.15, *)
     private func isValidPath(_ path: String) -> Bool {
         // 1. 禁止包含敏感路径字符及其编码形式
         let invalidPatterns = ["../", "./", "~/", "%2E%2E%2F", "%2e%2e%2f"]
@@ -146,7 +154,9 @@ final class DeepLinkHandler {
         // 2. 限制路径深度
         let pathComponents = path.components(separatedBy: "/").filter { !$0.isEmpty }
         if pathComponents.count > maxPathDepth {
-            Router.shared.log("URL路径深度(\(pathComponents.count))超过最大限制(\(maxPathDepth))", level: .warning)
+            if #available(iOS 13.0, macOS 10.15, *) {
+                Router.shared.log("URL路径深度(\(pathComponents.count))超过最大限制(\(maxPathDepth))", level: .warning)
+            }
             return false
         }
         
@@ -158,11 +168,17 @@ final class DeepLinkHandler {
 }
 
 // MARK: - AppDelegate扩展（方便集成）
+@available(iOS 13.0, macOS 10.15, *)
 extension PlatformApplication: PlatformApplicationProtocol {
+    @available(iOS 13.0, macOS 10.15, *)
     func open(_ url: URL, options: [PlatformOpenURLOptionsKey: Any], completionHandler: ((Bool) -> Void)?) {
-        Task {
-            let result = await DeepLinkHandler.shared.handle(url: url, options: options)
-            completionHandler?(result)
+        DispatchQueue.main.async {
+            if #available(iOS 13.0, macOS 10.15, *) {
+                Task {
+                    let result = await DeepLinkHandler.shared.handle(url: url, options: options)
+                    completionHandler?(result)
+                }
+            }
         }
     }
 }
@@ -173,16 +189,24 @@ protocol PlatformApplicationProtocol {
 
 extension UIApplicationDelegate {
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
-        Task {
-            let _ = await DeepLinkHandler.shared.handle(url: url, options: options)
+        DispatchQueue.main.async {
+            if #available(iOS 13.0, macOS 10.15, *) {
+                Task {
+                    let _ = await DeepLinkHandler.shared.handle(url: url, options: options)
+                }
+            }
         }
         return true
     }
     
-    func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
+    func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([Any]?) -> Void) -> Bool {
         if userActivity.activityType == NSUserActivityTypeBrowsingWeb, let url = userActivity.webpageURL {
-            Task {
-                let _ = await DeepLinkHandler.shared.handle(url: url, options: nil)
+            DispatchQueue.main.async {
+                if #available(iOS 13.0, macOS 10.15, *) {
+                    Task {
+                        let _ = await DeepLinkHandler.shared.handle(url: url, options: nil)
+                    }
+                }
             }
             return true
         }

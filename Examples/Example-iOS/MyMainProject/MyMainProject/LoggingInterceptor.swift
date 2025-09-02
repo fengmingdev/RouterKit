@@ -5,7 +5,7 @@
 //  Created by fengming on 2025/8/8.
 //
 
-import RouterKit
+import RouterKit_Swift
 
 /// 日志拦截器 - 记录所有路由操作
 class LoggingInterceptor: BaseInterceptor {

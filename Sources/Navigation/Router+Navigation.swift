@@ -6,6 +6,7 @@
 //
 
 import Foundation
+#if canImport(UIKit)
 import UIKit
 
 // MARK: - 导航功能扩展
@@ -142,26 +143,30 @@ extension Router: UIViewControllerTransitioningDelegate {
                          completion: @escaping RouterCompletion)
     {
         // 启动异步任务处理拦截器（因为需要访问actor）
-        Task {
-            do {
-                // 先执行拦截器链
-                let (url, params, presentationStyle) = try await handleInterceptors(url: urlString, parameters: parameters ?? [:])
-                
-                // 拦截通过，执行导航
-                self.performNavigation(urlString: url, presentationStyle: presentationStyle,
-                                       parameters: params,
-                                       sourceVC: sourceVC,
-                                       type: type,
-                                       animated: animated,
-                                       animationId: animationId,
-                                       retryCount: retryCount,
-                                       completion: completion)
-            } catch let error as RouterError {
-                // 拦截失败，返回错误
-                log("导航失败: \(error)", level: .error)
-                completion(.failure(error))
-            } catch {
-                completion(.failure(.interceptorRejected(error.localizedDescription)))
+        DispatchQueue.main.async {
+            if #available(iOS 13.0, macOS 10.15, *) {
+                Task {
+                    do {
+                        // 先执行拦截器链
+                        let (url, params, presentationStyle) = try await self.handleInterceptors(url: urlString, parameters: parameters ?? [:])
+                        
+                        // 拦截通过，执行导航
+                        self.performNavigation(urlString: url, presentationStyle: presentationStyle,
+                                               parameters: params,
+                                               sourceVC: sourceVC,
+                                               type: type,
+                                           animated: animated,
+                                           animationId: animationId,
+                                           retryCount: retryCount,
+                                              completion: completion)
+                    } catch let error as RouterError {
+                        // 拦截失败，返回错误
+                        self.log("导航失败: \(error)", level: .error)
+                        completion(.failure(error))
+                    } catch {
+                        completion(.failure(.interceptorRejected(error.localizedDescription)))
+                    }
+                }
             }
         }
     }
@@ -186,7 +191,7 @@ extension Router: UIViewControllerTransitioningDelegate {
             index += 1
             
             // 使用withCheckedThrowingContinuation将回调转为async/await，并使用弱引用避免循环引用
-            let (redirectUrl, newParams, presentationStyle) = try await withCheckedThrowingContinuation { [weak interceptor] continuation in
+            let (redirectUrl, newParams, presentationStyle) = try await withCheckedThrowingContinuation { [weak interceptor] (continuation: CheckedContinuation<(String, RouterParameters, NavigationPresentationStyle?), Error>) in
                 guard let interceptor = interceptor else { return }
                 interceptor.intercept(url: currentUrl, parameters: currentParams) { allowed, reason, url, params, style in
                     if allowed {
@@ -213,8 +218,15 @@ extension Router: UIViewControllerTransitioningDelegate {
     /// 取消当前正在进行的导航
     public func cancelCurrentNavigation() {
         log("取消当前导航任务", level: .info)
-        currentNavigationTask?.cancel()
-        currentNavigationTask = nil
+        DispatchQueue.main.async {
+            if #available(iOS 13.0, macOS 10.15, *) {
+                Task {
+                    let task = await self.state.getCurrentNavigationTask()
+                    task?.cancel()
+                    await self.state.setCurrentNavigationTask(nil)
+                }
+            }
+        }
     }
 
     /// 执行实际导航操作
@@ -240,9 +252,14 @@ extension Router: UIViewControllerTransitioningDelegate {
         cancelCurrentNavigation()
         
         // 启动新的导航任务
-        currentNavigationTask = Task { [weak self] in
-            guard let self = self else { return }
-        
+        if #available(iOS 13.0, macOS 10.15, *) {
+            var navigationTask: Task<Void, Error>?
+            navigationTask = Task { [weak self] in
+                guard let self = self else { return }
+                
+                // 设置当前导航任务到状态管理器
+                await state.setCurrentNavigationTask(navigationTask)
+            
             do {
                 // 创建目标视图控制器
                 let targetVC = try await createViewController(for: url, parameters: parameters)
@@ -342,7 +359,7 @@ extension Router: UIViewControllerTransitioningDelegate {
                         currentAnimation = nil
                         completion(.success(nil))
                     } else {
-                        completion(.failure(.parameterError("popTo需要指定targetViewController或targetViewControllerClass参数", "请提供要返回的视图控制器实例或类名")))
+                        completion(.failure(.parameterError("popTo需要指定targetViewController或targetViewControllerClass参数", suggestion: "请提供要返回的视图控制器实例或类名")))
                     }
                 }
                 
@@ -372,6 +389,10 @@ extension Router: UIViewControllerTransitioningDelegate {
                 log("导航发生未知错误: \(error.localizedDescription)", level: .error)
                 completion(.failure(.navigationError(error.localizedDescription)))
             }
+            
+            // 清理当前导航任务状态
+            await state.setCurrentNavigationTask(nil)
+        }
         }
     }
     
@@ -483,7 +504,7 @@ extension Router: UIViewControllerTransitioningDelegate {
         }
         
         // 尝试加载模块
-        let loaded = try await withCheckedThrowingContinuation { continuation in
+        let loaded = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, Error>) in
             module.load { success in
                 if success {
                     continuation.resume(returning: success)
@@ -616,7 +637,7 @@ extension Router: UIViewControllerTransitioningDelegate {
         let vcToPresent = target is UINavigationController ? target : UINavigationController(rootViewController: target)
         source.present(vcToPresent, animated: animated, completion: completion)
     }
-    
+
     /// 执行replace导航（替换当前页面）
     private func replace(from source: UIViewController, to target: UIViewController, animated: Bool) throws {
         guard let nav = source.navigationController else {
@@ -660,12 +681,13 @@ extension Router: UIViewControllerTransitioningDelegate {
     private func popToRoot(from source: UIViewController, animated: Bool) {
         if let nav = source.navigationController {
             nav.popToRootViewController(animated: animated)
-        } else if let presentingVC = source.presentingViewController {
-            // 如果是模态展示，则dismiss
-            presentingVC.dismiss(animated: animated)
+        } else if #available(iOS 13.0, *) {
+            if let navigationController = topMostViewController()?.navigationController {
+                navigationController.popToRootViewController(animated: animated)
+            }
         }
     }
-    
+
     // MARK: - 转场动画代理（UIViewControllerTransitioningDelegate）
 
     /// 提供展示动画
@@ -683,3 +705,5 @@ extension Router: UIViewControllerTransitioningDelegate {
         return AnimationTransitionWrapper(animation: animation, isPresentation: false)
     }
 }
+
+#endif

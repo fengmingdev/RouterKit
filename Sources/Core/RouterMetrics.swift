@@ -52,6 +52,7 @@ struct RouterMetricsData {
 }
 
 /// 路由监控和统计类
+@available(iOS 13.0, macOS 10.15, *)
 final actor RouterMetrics {
     static let shared = RouterMetrics()
     private init() {}
@@ -67,11 +68,13 @@ final actor RouterMetrics {
     private var dataCleanupTimer: Timer?
     
     // MARK: - 初始化
-    public func initialize() {
+    public func initialize() async {
         // 设置定时清理过期数据
         dataCleanupTimer = Timer.scheduledTimer(withTimeInterval: 86400, repeats: true) { [weak self] _ in
-            Task {
-                await self?.cleanupExpiredData()
+            DispatchQueue.main.async {
+                Task {
+                    await self?.cleanupExpiredData()
+                }
             }
         }
     }

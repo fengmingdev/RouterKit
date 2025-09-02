@@ -8,13 +8,14 @@
 import Foundation
 
 /// 路由配置加载器，支持从plist/JSON文件预加载路由
-final class RouteConfigLoader {
+@available(iOS 13.0, macOS 10.15, *)
+public final class RouteConfigLoader {
     /// 从plist文件加载路由配置
     /// - Parameters:
-    ///   - fileName: 文件名（不含扩展名）
+    ///   - fileName: plist文件名（不含扩展名）
     ///   - bundle: 所在Bundle
     /// - Throws: 加载或解析错误
-    static func loadFromPlist(_ fileName: String, in bundle: Bundle = .main) async throws {
+    public static func loadFromPlist(_ fileName: String, in bundle: Bundle = .main) async throws {
         guard let path = bundle.path(forResource: fileName, ofType: "plist"),
               let config = NSDictionary(contentsOfFile: path) as? [String: String] else {
             throw RouterError.configError("路由配置文件 \(fileName).plist 不存在")
@@ -25,10 +26,10 @@ final class RouteConfigLoader {
     
     /// 从JSON文件加载路由配置
     /// - Parameters:
-    ///   - fileName: 文件名（不含扩展名）
+    ///   - fileName: JSON文件名（不含扩展名）
     ///   - bundle: 所在Bundle
     /// - Throws: 加载或解析错误
-    static func loadFromJSON(_ fileName: String, in bundle: Bundle = .main) async throws {
+    public static func loadFromJSON(_ fileName: String, in bundle: Bundle = .main) async throws {
         guard let path = bundle.path(forResource: fileName, ofType: "json") else {
             throw RouterError.configError("路由配置文件 \(fileName).json 不存在")
         }
@@ -44,6 +45,7 @@ final class RouteConfigLoader {
     }
     
     /// 实际加载路由配置
+    @available(iOS 13.0, macOS 10.15, *)
     private static func loadRoutes(from config: [String: String]) async throws {
         let router = Router.shared
         var successCount = 0
