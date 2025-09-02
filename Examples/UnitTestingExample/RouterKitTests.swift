@@ -1,6 +1,5 @@
 import XCTest
 import RouterKit
-@testable import RouterKit
 
 class RouterKitTests: XCTestCase {
     var router: Router!

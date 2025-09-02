@@ -17,41 +17,41 @@ public struct RoutePattern: Hashable {
         case wildcard                         // 通配符匹配（*）
         case regex(NSRegularExpression, [String]) // 正则表达式匹配（含捕获组名称）
     }
-    
+
     let pattern: String              // 原始模式字符串（如"/UserModule/profile/:id"）
     let components: [Component]      // 解析后的组件数组
     let moduleName: String           // 所属模块名（模式的第一个组件）
     private let cachedHashValue: Int // 缓存哈希值（优化性能）
-    
+
     /// 初始化并解析路由模式
     /// - Parameter pattern: 原始模式字符串
     /// - Throws: 模式语法错误时抛出异常
     public init(_ pattern: String) throws {
         self.pattern = pattern
         self.cachedHashValue = pattern.hashValue
-        
+
         let pathComponents = pattern.components(separatedBy: "/").filter { !$0.isEmpty }
         guard !pathComponents.isEmpty else {
             throw RouterError.patternSyntaxError("路由模式不能为空: \(pattern)")
         }
-        
+
         // 第一个组件作为模块名
         self.moduleName = pathComponents[0]
         var components: [Component] = []
-        
+
         for component in pathComponents {
             switch component {
             case "*":
                 // 通配符匹配
                 components.append(.wildcard)
-                
+
             case let param where param.hasPrefix(":"):
                 // 参数匹配（如:id 或 :name?）
                 let paramName = String(param.dropFirst())
                 let isOptional = paramName.hasSuffix("?")
                 let cleanedName = isOptional ? String(paramName.dropLast()) : paramName
                 components.append(.parameter(cleanedName, isOptional))
-                
+
             case let regex where regex.hasPrefix("(") && regex.hasSuffix(")"):
                 // 正则表达式匹配（如(\d{4})）
                 let regexPattern = String(regex.dropFirst().dropLast())
@@ -62,21 +62,21 @@ public struct RoutePattern: Hashable {
                 } catch {
                     throw RouterError.patternSyntaxError("无效的正则表达式: \(regexPattern)")
                 }
-                
+
             default:
                 // 字面量匹配
                 components.append(.literal(component))
             }
         }
-        
+
         self.components = components
     }
-    
+
     // 哈希实现（使用缓存值优化）
     public func hash(into hasher: inout Hasher) {
         hasher.combine(cachedHashValue)
     }
-    
+
     // 相等性判断
     public static func == (lhs: RoutePattern, rhs: RoutePattern) -> Bool {
         return lhs.pattern == rhs.pattern
@@ -134,7 +134,7 @@ extension UUID: RouteParameterConvertible {
     /// - Parameter url: 要匹配的URL
     /// - Returns: 匹配结果（包含参数和是否完全匹配）
     func match(_ url: URL) -> (parameters: [String: Any], isExactMatch: Bool) {
-        let pathComponents = url.pathComponents.filter { !$0.isEmpty }
+        let pathComponents = url.pathComponents.filter { $0 != "/" && !$0.isEmpty }
         guard !pathComponents.isEmpty else { return ([String: Any](), false) }
 
         // 检查模块名是否匹配
@@ -151,6 +151,11 @@ extension UUID: RouteParameterConvertible {
             for item in queryItems {
                 parameters[item.name] = item.value
             }
+        }
+        
+        // 提取fragment参数
+        if let fragment = url.fragment {
+            parameters["fragment"] = fragment
         }
 
         for component in components {

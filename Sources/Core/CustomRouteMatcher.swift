@@ -23,18 +23,18 @@ class DefaultRouteMatcher: RouteMatcher {
         do {
             let routePattern = try RoutePattern(pattern)
             let pathComponents = path.components(separatedBy: "/").filter { !$0.isEmpty }
-            
+
             var params: RouterParameters = [:]
             var isMatch = true
-            
+
             var pIndex = 0
             var pathIndex = 0
-            
+
             // 匹配逻辑
             while pIndex < routePattern.components.count && pathIndex < pathComponents.count {
                 let pComponent = routePattern.components[pIndex]
                 let pathComponent = pathComponents[pathIndex]
-                
+
                 switch pComponent {
                 case .literal(let value):
                     if value != pathComponent {
@@ -46,28 +46,28 @@ class DefaultRouteMatcher: RouteMatcher {
                     }
                     pIndex += 1
                     pathIndex += 1
-                    
+
                 case .parameter(let name, let isOptional):
                     params[name] = pathComponent
                     pIndex += 1
                     pathIndex += 1
-                    
+
                     if isOptional && pathIndex >= pathComponents.count {
                         pIndex += 1
                     }
-                    
+
                 case .wildcard:
                     params["*"] = Array(pathComponents[pathIndex...])
                     pIndex += 1
                     pathIndex = pathComponents.count
-                    
+
                 case .regex(let regex, let paramNames):
                     let range = NSRange(location: 0, length: pathComponent.utf16.count)
                     guard regex.firstMatch(in: pathComponent, options: [], range: range) != nil else {
                         isMatch = false
                         break
                     }
-                    
+
                     if let match = regex.matches(in: pathComponent, options: [], range: range).first {
                         for (i, name) in paramNames.enumerated() {
                             let groupRange = match.range(at: i + 1)
@@ -77,12 +77,12 @@ class DefaultRouteMatcher: RouteMatcher {
                             }
                         }
                     }
-                    
+
                     pIndex += 1
                     pathIndex += 1
                 }
             }
-            
+
             while pIndex < routePattern.components.count {
                 let component = routePattern.components[pIndex]
                 if case .parameter(_, true) = component {
@@ -95,11 +95,11 @@ class DefaultRouteMatcher: RouteMatcher {
                     break
                 }
             }
-            
+
             if pathIndex < pathComponents.count && pIndex >= routePattern.components.count {
                 isMatch = false
             }
-            
+
             return (isMatch, params)
         } catch {
             return (false, [:])

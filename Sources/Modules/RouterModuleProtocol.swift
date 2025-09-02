@@ -24,13 +24,13 @@ public struct ModuleDependency {
 public protocol ModuleProtocol: AnyObject, Sendable {
     /// 模块唯一标识（不可重复），建议使用模块的类名作为标识
     var moduleName: String { get }
-    
+
     /// 模块依赖列表，声明当前模块运行所需的其他模块
     var dependencies: [ModuleDependency] { get }
-    
+
     /// 最后使用时间（用于自动清理），框架会定期检查并卸载长时间未使用的模块
     var lastUsedTime: Date { get set }
-    
+
     /// 加载模块资源
     /// - 使用场景：模块首次被访问时由框架自动调用
     /// - 参数 completion: 加载完成回调（success: 是否加载成功）
@@ -39,7 +39,7 @@ public protocol ModuleProtocol: AnyObject, Sendable {
     ///   2. 异步加载操作应在此方法中执行
     ///   3. 加载失败时应提供明确的错误信息
     func load(completion: @escaping (Bool) -> Void)
-    
+
     /// 卸载模块资源
     /// - 使用场景：模块长时间未使用或内存紧张时由框架自动调用
     /// - 注意事项：
@@ -47,17 +47,17 @@ public protocol ModuleProtocol: AnyObject, Sendable {
     ///   2. 取消所有正在进行的异步任务
     ///   3. 移除所有注册的通知和观察者
     func unload()
-    
+
     /// 暂停模块业务（如进入后台）
     /// - 使用场景：应用进入后台或模块暂时不可见时调用
     /// - 注意事项：应暂停耗时操作、定时器等，但保留必要的状态
     func suspend()
-    
+
     /// 恢复模块业务（如回到前台）
     /// - 使用场景：应用回到前台或模块重新可见时调用
     /// - 注意事项：恢复之前暂停的操作和定时器
     func resume()
-    
+
     /// 模块的初始化方法
     /// - 注意事项：初始化方法应保持轻量级，避免在此处执行耗时操作
     init()

@@ -6,7 +6,7 @@
 //
 
 import RouterKit_Swift
-// MARK:  创建模块生命周期观察者
+// MARK: 创建模块生命周期观察者
 
 /// 模块生命周期观察者
 class AppModuleObserver: ModuleLifecycleObserver {

@@ -60,18 +60,18 @@ public protocol RouterInterceptor: AnyObject {
 open class BaseInterceptor: RouterInterceptor {
     open var priority: InterceptorPriority = .normal  // 默认优先级
     open var isAsync: Bool = false                    // 默认同步执行
-    
+
     public init(priority: InterceptorPriority = .normal, isAsync: Bool = false) {
         self.priority = priority
         self.isAsync = isAsync
     }
-    
+
     /// 日志打印方法（供子类使用）
     @available(iOS 13.0, macOS 10.15, *)
     open func log(_ message: String) async {
         await RouterLogger.shared.log(message, level: .info)
     }
-    
+
     /// 默认实现：允许所有路由
     open func intercept(url: String, parameters: RouterParameters, completion: @escaping InterceptorCompletion) {
         completion(true, nil, nil, nil, nil)

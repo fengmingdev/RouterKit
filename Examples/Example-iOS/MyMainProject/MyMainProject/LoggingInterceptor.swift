@@ -14,7 +14,7 @@ class LoggingInterceptor: BaseInterceptor {
         get { .lowest }
         set { /* 固定为最低优先级，不允许修改 */ }
     }
-    
+
     override func intercept(url: String, parameters: RouterParameters, completion: @escaping InterceptorCompletion) {
         print("[路由日志] 访问: \(url), 参数: \(parameters)")
         // 继续执行（允许路由，不修改URL和参数）

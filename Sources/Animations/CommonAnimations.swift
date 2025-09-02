@@ -51,7 +51,7 @@ class SlideInFromRightAnimation: NavigationAnimatable {
         }, completion: { _ in
             transitionContext.completeTransition(true)
         })
-                       
+
         #elseif os(macOS)
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = transitionDuration
@@ -90,7 +90,7 @@ class SlideInFromRightAnimation: NavigationAnimatable {
         })
         #endif
     }
-    
+
 }
 
 /// 从左侧滑入的转场动画
@@ -250,10 +250,10 @@ class FlipAnimation: NavigationAnimatable {
         UIView.animate(withDuration: transitionDuration, animations: {
             fromView.transform = CGAffineTransform(rotationAngle: .pi/2)
             toView.transform = .identity
-        }) { _ in
+        }, completion: { _ in
             fromView.transform = .identity
             transitionContext.completeTransition(true)
-        }
+        })
         #elseif os(macOS)
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = transitionDuration
@@ -291,10 +291,10 @@ class FlipAnimation: NavigationAnimatable {
         UIView.animate(withDuration: transitionDuration, animations: {
             fromView.transform = CGAffineTransform(rotationAngle: .pi/2)
             toView.transform = .identity
-        }) { _ in
+        }, completion: { _ in
             fromView.removeFromSuperview()
             transitionContext.completeTransition(true)
-        }
+        })
         #elseif os(macOS)
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = transitionDuration

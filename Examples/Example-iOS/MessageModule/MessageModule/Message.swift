@@ -13,12 +13,4 @@ struct Message: Codable, Identifiable {
     public let content: String
     public let sender: String
     public let timestamp: Date
-    
-    init(id: Int, title: String, content: String, sender: String, timestamp: Date) {
-        self.id = id
-        self.title = title
-        self.content = content
-        self.sender = sender
-        self.timestamp = timestamp
-    }
 }

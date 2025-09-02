@@ -38,7 +38,7 @@ public class RouterSecurity {
     private func sanitizeString(_ string: String) -> String {
         // 移除HTML标签
         var sanitized = string.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
-        
+
         // 转义特殊字符
         sanitized = sanitized
             .replacingOccurrences(of: "&", with: "&amp;")
@@ -46,10 +46,10 @@ public class RouterSecurity {
             .replacingOccurrences(of: ">", with: "&gt;")
             .replacingOccurrences(of: "\"", with: "&quot;")
             .replacingOccurrences(of: "'", with: "&#39;")
-        
+
         // 移除JavaScript代码
         sanitized = sanitized.replacingOccurrences(of: "javascript:[^'\"]*", with: "", options: .regularExpression)
-        
+
         return sanitized
     }
 
@@ -106,7 +106,7 @@ public struct BasicParameterRule: ParameterRule {
     public let type: Any.Type
     public let isRequired: Bool
     private let typeChecker: (Any) -> Bool
-    
+
     // 使用泛型初始化方法，创建类型检查闭包
     public init<T>(type: T.Type, isRequired: Bool = true) {
         self.type = type
@@ -116,7 +116,7 @@ public struct BasicParameterRule: ParameterRule {
             value is T
         }
     }
-    
+
     public func isValidType(_ value: Any) -> Bool {
         // 使用闭包进行类型检查，避免直接比较Any.Type
         return typeChecker(value)
@@ -142,19 +142,19 @@ public struct RangeParameterRule: ParameterRule {
         self.typeChecker = { value in
             value is T
         }
-        
+
         // 预定义范围检查逻辑，捕获泛型类型信息
         self.rangeChecker = { value in
             guard let value = value as? T else { return false }
-            
+
             if let min = min, value < min {
                 return false
             }
-            
+
             if let max = max, value > max {
                 return false
             }
-            
+
             return true
         }
 
@@ -168,7 +168,7 @@ public struct RangeParameterRule: ParameterRule {
         }
         self.rangeDescription = description
     }
-    
+
     public func isValidType(_ value: Any) -> Bool {
         return typeChecker(value)
     }
@@ -194,7 +194,7 @@ public struct FormatParameterRule: ParameterRule {
         self.regex = regex
         self.formatDescription = formatDescription
     }
-    
+
     public func isValidType(_ value: Any) -> Bool {
         return value is String
     }

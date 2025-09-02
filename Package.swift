@@ -20,7 +20,7 @@ let package = Package(
         .library(
             name: "RouterKitStatic",
             type: .static,
-            targets: ["RouterKit"]),
+            targets: ["RouterKit"])
     ],
     dependencies: [
         // Dependencies declare other packages that this package depends on.
@@ -36,7 +36,7 @@ let package = Package(
             name: "RouterKitTests",
             dependencies: ["RouterKit"],
             path: "Tests",
-            resources: [.copy("TestResources")]),
+            resources: [.copy("TestResources")])
     ],
     swiftLanguageVersions: [.v5]
 )

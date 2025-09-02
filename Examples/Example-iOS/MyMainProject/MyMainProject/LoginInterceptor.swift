@@ -16,12 +16,12 @@ public class LoginInterceptor: BaseInterceptor {
         get { .highest }
         set { /* 固定为最高优先级，不允许修改 */ }
     }
-    
+
     /// 拦截需要登录的路由
     public override func intercept(url: String, parameters: RouterParameters, completion: @escaping InterceptorCompletion) {
         Task {
             await log("开始登录状态检查：\(url)")
-            
+
             // 需要登录的路由列表
             let needLoginRoutes: [String] = ["/MessageModule/message"]
 
@@ -35,7 +35,7 @@ public class LoginInterceptor: BaseInterceptor {
                     return
                 }
             }
-            
+
             await log("登录状态验证通过，允许路由")
             completion(true, nil, nil, nil, nil)
         }

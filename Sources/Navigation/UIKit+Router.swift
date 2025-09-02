@@ -34,7 +34,7 @@ extension UIViewController {
             completion: completion
         )
     }
-    
+
     /// 从当前控制器present到指定URL
     /// - Parameters:
     ///   - url: 目标URL
@@ -56,7 +56,7 @@ extension UIViewController {
             completion: completion
         )
     }
-    
+
     /// 替换当前控制器为指定URL对应的页面
     /// - Parameters:
     ///   - url: 目标URL
@@ -93,12 +93,12 @@ extension UIButton {
         setAssociatedObject(parameters ?? [:], forKey: &routerParamsKey)
         setAssociatedObject(sourceVC, forKey: &routerSourceVCKey)
     }
-    
+
     @objc private func routerButtonTapped(_ sender: UIButton) {
         guard let url = getAssociatedObject(forKey: &routerURLKey) as? String else { return }
         let parameters = getAssociatedObject(forKey: &routerParamsKey) as? RouterParameters
         let sourceVC = getAssociatedObject(forKey: &routerSourceVCKey) as? UIViewController ?? sender.viewController
-        
+
         Router.push(
             to: url,
             parameters: parameters,
@@ -125,7 +125,7 @@ extension NSObject {
     fileprivate func setAssociatedObject(_ value: Any?, forKey key: UnsafeRawPointer) {
         objc_setAssociatedObject(self, key, value, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
     }
-    
+
     /// 获取关联对象
     fileprivate func getAssociatedObject(forKey key: UnsafeRawPointer) -> Any? {
         return objc_getAssociatedObject(self, key)

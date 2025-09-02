@@ -26,7 +26,7 @@ extension SwiftUIRoutable {
 struct RouterView: View {
     let url: String
     let parameters: RouterParameters?
-    
+
     var body: some View {
         // 实际项目中可根据URL动态创建对应的SwiftUI视图
         // 这里简化实现，实际应通过Router查找对应的Routable类型
@@ -60,7 +60,7 @@ extension View {
     let type: NavigationType
     let animated: Bool
     @Environment(\.presentationMode) var presentationMode
-    
+
     func body(content: Content) -> some View {
         content
             .onTapGesture {

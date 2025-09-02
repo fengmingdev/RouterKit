@@ -14,7 +14,7 @@ public class RouterNamespace {
     public let name: String
     /// 父路由管理器
     private unowned let router: Router
-    
+
     /// 初始化命名空间
     /// - Parameters:
     ///   - name: 命名空间名称
@@ -24,7 +24,7 @@ public class RouterNamespace {
         self.name = name
         self.router = router
     }
-    
+
     /// 在当前命名空间注册路由
     /// - Parameters:
     ///   - pattern: 路由模式
@@ -35,7 +35,7 @@ public class RouterNamespace {
     public func register(_ pattern: String, for routableType: Routable.Type, permission: RoutePermission? = nil, priority: Int = 0) async throws {
         try await router.registerRoute(pattern, for: routableType, permission: permission, priority: priority, scheme: name)
     }
-    
+
     /// 在当前命名空间动态注册路由
     /// - Parameters:
     ///   - pattern: 路由模式
@@ -46,7 +46,7 @@ public class RouterNamespace {
     public func registerDynamic(_ pattern: String, for routableType: Routable.Type, permission: RoutePermission? = nil, priority: Int = 0) async throws {
         try await router.registerDynamicRoute(pattern, for: routableType, permission: permission, priority: priority, scheme: name)
     }
-    
+
     /// 创建带命名空间的URL
     /// - Parameters:
     ///   - path: 路径
@@ -67,7 +67,6 @@ public class RouterNamespace {
 @available(iOS 13.0, macOS 10.15, *)
 extension Router {
 
-    
     /// 获取或创建命名空间
     /// - Parameter name: 命名空间名称
     /// - Returns: 命名空间实例
@@ -79,7 +78,7 @@ extension Router {
         namespaces[name] = newNamespace
         return newNamespace
     }
-    
+
     /// 移除命名空间
     /// - Parameter name: 命名空间名称
     public func removeNamespace(_ name: String) async {
@@ -88,7 +87,7 @@ extension Router {
         await state.cleanupRoutes(forScheme: name)
         log("已移除命名空间: \(name)")
     }
-    
+
     /// 查找指定命名空间
     /// - Parameter name: 命名空间名称
     /// - Returns: 命名空间实例（可选）

@@ -17,98 +17,98 @@ import UIKit
 @available(iOS 13.0, macOS 10.15, *)
 public actor RouterState {
     // MARK: - 存储容器
-    
+
     /// 模块存储（使用弱引用包装避免循环引用）
     /// 键: 模块名称，值: 弱引用包装的模块实例
     private var modules: [String: Weak<AnyObject>] = [:]
-    
+
     /// 路由注册表项，包含可路由类型和优先级
     private struct RouteEntry {
         let routableType: Routable.Type
         let priority: Int
         let scheme: String
     }
-    
+
     /// 路由注册表
     /// 键: 路由模式（RoutePattern），值: 路由注册表项
     private var routes: [RoutePattern: RouteEntry] = [:]
-    
+
     /// 按模块分组的路由模式
     /// 键: 模块名称，值: 该模块下的所有路由模式数组
     private var routesByModule: [String: [RoutePattern]] = [:]
-    
+
     /// 按命名空间分组的路由模式
     /// 键: 命名空间名称，值: 该命名空间下的所有路由模式数组
     private var routesByScheme: [String: [RoutePattern]] = [:]
-    
+
     /// 路由Trie树（用于优化路由匹配性能）
     private var routeTrie = RouteTrie()
-    
+
     /// 路由权限配置
     /// 键: 路由模式，值: 该路由的访问权限配置
     private var routePermissions: [RoutePattern: RoutePermission] = [:]
-    
+
     /// 拦截器列表（已按优先级排序，降序）
     private var interceptors: [RouterInterceptor] = []
-    
+
     #if canImport(UIKit)
     /// 动画注册表
     /// 键: 动画标识，值: 对应的转场动画实例
     private var animations: [String: NavigationAnimatable] = [:]
     #endif
-    
+
     /// 路由匹配器注册表
     /// 键: 匹配器适用的模式前缀，值: 路由匹配器实例
     /// 默认包含空字符串前缀的默认匹配器
     private var matchers: [String: RouteMatcher] = ["": DefaultRouteMatcher()]
-    
+
     /// 高级路由缓存管理器
     private let routeCache = RouterCache()
-    
+
     // MARK: - 配置参数
-    
+
     /// 最大重试次数（当路由失败且可重试时）
     var maxRetryCount: Int = 3
-    
+
     /// 重试延迟时间（秒）
     var retryDelay: TimeInterval = 0.5
-    
+
     /// 模块过期时间（秒）
     /// 超过此时间未使用的模块将被自动清理
     var moduleExpirationTime: TimeInterval = 300 // 5分钟
-    
+
     /// 是否启用日志输出
     var enableLogging: Bool = true
-    
+
     /// 模块清理间隔时间（秒）
     var cleanupInterval: TimeInterval = 60 // 1分钟
-    
+
     /// 路由缓存最大容量
     var cacheSize: Int = 100
-    
+
     /// 是否启用参数清理（安全特性）
     /// 启用后会对路由参数进行安全清理，防止恶意内容
     var enableParameterSanitization: Bool = true
-    
+
     /// 权限验证器实例
     /// 用于验证路由访问权限
     var permissionValidator: RoutePermissionValidator = DefaultPermissionValidator()
-    
+
     /// 当前导航任务
     /// 用于标识正在进行的导航任务，避免并发冲突
     #if swift(>=5.5) && canImport(_Concurrency)
     var currentNavigationTask: Task<Void, Error>?
     #endif
-    
+
     // MARK: - 模块管理
-    
+
     /// 注册模块
     /// - Parameter module: 要注册的模块实例（需遵循ModuleProtocol）
     func registerModule(_ module: any ModuleProtocol) {
         let weakWrapper = Weak(value: module as AnyObject)
         modules[module.moduleName] = weakWrapper
     }
-    
+
     /// 卸载模块
     /// - Parameter moduleName: 模块名称
     /// - Returns: 被卸载的模块实例（如果存在）
@@ -117,11 +117,11 @@ public actor RouterState {
               let module = weakWrapper.value as? any ModuleProtocol else {
             return nil
         }
-        
+
         modules.removeValue(forKey: moduleName)
         return module
     }
-    
+
     /// 检查模块是否已加载
     /// - Parameter moduleName: 模块名称
     /// - Returns: 模块是否已加载（弱引用仍然有效）
@@ -131,7 +131,7 @@ public actor RouterState {
         }
         return weakWrapper.value != nil
     }
-    
+
     /// 获取模块实例
     /// - Parameter name: 模块名称
     /// - Returns: 模块实例（可选，弱引用可能已失效）
@@ -141,7 +141,7 @@ public actor RouterState {
         }
         return weakWrapper.value as? any ModuleProtocol
     }
-    
+
     /// 获取指定类型的模块实例
     /// - Parameter type: 模块类型（需遵循ModuleProtocol）
     /// - Returns: 模块实例（可选）
@@ -149,9 +149,9 @@ public actor RouterState {
         let key = String(describing: type)
         return modules[key]?.value as? T
     }
-    
+
     // MARK: - 路由管理
-    
+
     /// 注册路由模式
     /// - Parameters:
     ///   - routePattern: 路由模式
@@ -164,18 +164,18 @@ public actor RouterState {
         if routes[routePattern] != nil {
             throw RouterError.routeAlreadyExists(routePattern.pattern)
         }
-        
+
         let routeEntry = RouteEntry(routableType: routableType, priority: priority, scheme: scheme)
         routes[routePattern] = routeEntry
         routesByModule[routePattern.moduleName, default: []].append(routePattern)
         routesByScheme[scheme, default: []].append(routePattern)
         await routeTrie.insert(routePattern)
-        
+
         if let permission = permission {
             routePermissions[routePattern] = permission
         }
     }
-    
+
     /// 注册动态路由（无需模块预先注册）
     /// - Parameters:
     ///   - routePattern: 路由模式
@@ -188,31 +188,31 @@ public actor RouterState {
         if routes[routePattern] != nil {
             throw RouterError.routeAlreadyExists(routePattern.pattern)
         }
-        
+
         let routeEntry = RouteEntry(routableType: routableType, priority: priority, scheme: scheme)
         routes[routePattern] = routeEntry
         // 使用路由模式中的模块名
         routesByModule[routePattern.moduleName, default: []].append(routePattern)
         routesByScheme[scheme, default: []].append(routePattern)
         await routeTrie.insert(routePattern)
-        
+
         if let permission = permission {
             routePermissions[routePattern] = permission
         }
     }
-    
+
     /// 清理指定命名空间下的所有路由
     /// - Parameter scheme: 命名空间名称
     func cleanupRoutes(forScheme scheme: String) async {
         guard let schemeRoutes = routesByScheme[scheme] else {
             return
         }
-        
+
         for routePattern in schemeRoutes {
             routes.removeValue(forKey: routePattern)
             routePermissions.removeValue(forKey: routePattern)
             await routeTrie.remove(routePattern)
-            
+
             // 从routesByModule中移除
             for (moduleName, moduleRoutes) in routesByModule {
                 var updatedRoutes = moduleRoutes
@@ -224,12 +224,12 @@ public actor RouterState {
                 }
             }
         }
-        
+
         routesByScheme.removeValue(forKey: scheme)
         // 清理相关缓存（通过清空整个缓存，因为无法精确过滤）
         await routeCache.clearAll()
     }
-    
+
     /// 移除动态路由
     /// - Parameter routePattern: 要移除的路由模式
     /// - Throws: 当路由不存在时抛出错误
@@ -237,14 +237,14 @@ public actor RouterState {
         guard routes[routePattern] != nil else {
             throw RouterError.routeNotFound(routePattern.pattern)
         }
-        
+
         guard let routeEntry = routes[routePattern] else {
             throw RouterError.routeNotFound(routePattern.pattern)
         }
-        
+
         routes.removeValue(forKey: routePattern)
         let dynamicModuleName = "__DynamicRoutes__"
-        
+
         // 从routesByModule中移除
         if var moduleRoutes = routesByModule[dynamicModuleName] {
             moduleRoutes.removeAll { $0 == routePattern }
@@ -254,7 +254,7 @@ public actor RouterState {
                 routesByModule[dynamicModuleName] = moduleRoutes
             }
         }
-        
+
         // 从routesByScheme中移除
         if var schemeRoutes = routesByScheme[routeEntry.scheme] {
             schemeRoutes.removeAll { $0 == routePattern }
@@ -264,29 +264,29 @@ public actor RouterState {
                 routesByScheme[routeEntry.scheme] = schemeRoutes
             }
         }
-        
+
         await routeTrie.remove(routePattern)
         routePermissions.removeValue(forKey: routePattern)
         // 清理相关缓存（通过清空整个缓存，因为无法精确过滤）
         await routeCache.clearAll()
     }
-    
+
     /// 获取指定模块下的所有路由模式
     /// - Parameter moduleName: 模块名称
     /// - Returns: 路由模式数组（可能为空）
     func getRoutesByModule(_ moduleName: String) -> [RoutePattern] {
         return routesByModule[moduleName] ?? []
     }
-    
+
     /// 获取路由模式对应的可路由类型
     /// - Parameter pattern: 路由模式
     /// - Returns: 可路由类型（可选）
     func getRoutableType(for pattern: RoutePattern) -> Routable.Type? {
         return routes[pattern]?.routableType
     }
-    
+
     // MARK: - 拦截器管理
-    
+
     /// 添加拦截器（自动按优先级排序）
     /// - Parameter interceptor: 拦截器实例
     func addInterceptor(_ interceptor: RouterInterceptor) {
@@ -294,34 +294,34 @@ public actor RouterState {
         // 按优先级降序排序（优先级值越大越先执行）
         interceptors.sort { $0.priority.rawValue > $1.priority.rawValue }
     }
-    
+
     /// 移除拦截器
     /// - Parameter interceptor: 要移除的拦截器实例（引用比较）
     func removeInterceptor(_ interceptor: RouterInterceptor) {
         interceptors.removeAll { $0 === interceptor }
     }
-    
+
     /// 获取所有拦截器（按优先级排序）
     /// - Returns: 拦截器数组
     func getInterceptors() -> [RouterInterceptor] {
         return interceptors
     }
-    
+
     // MARK: - 动画管理
-    
+
     #if canImport(UIKit)
     /// 注册转场动画
     /// - Parameter animation: 动画实例（需遵循NavigationAnimatable）
     func registerAnimation(_ animation: NavigationAnimatable) {
         animations[animation.identifier] = animation
     }
-    
+
     /// 移除转场动画
     /// - Parameter identifier: 动画标识
     func unregisterAnimation(_ identifier: String) {
         animations.removeValue(forKey: identifier)
     }
-    
+
     /// 获取转场动画
     /// - Parameter identifier: 动画标识
     /// - Returns: 动画实例（可选）
@@ -329,9 +329,9 @@ public actor RouterState {
         return animations[identifier]
     }
     #endif
-    
+
     // MARK: - 匹配器管理
-    
+
     /// 注册自定义路由匹配器
     /// - Parameters:
     ///   - matcher: 匹配器实例
@@ -339,7 +339,7 @@ public actor RouterState {
     func registerMatcher(_ matcher: RouteMatcher, for patternPrefix: String) {
         matchers[patternPrefix] = matcher
     }
-    
+
     /// 查找适合指定路由模式的匹配器
     /// - Parameter pattern: 路由模式
     /// - Returns: 最匹配的路由匹配器
@@ -348,11 +348,11 @@ public actor RouterState {
         let prefixes = matchers.keys.sorted { $0.count > $1.count }
         for prefix in prefixes {
             if pattern.hasPrefix(prefix) {
-                return matchers[prefix]!
+                return matchers[prefix] ?? matchers[""] ?? DefaultRouteMatcher()
             }
         }
         // 未找到匹配的前缀时使用默认匹配器
-        return matchers[""]!
+        return matchers[""] ?? DefaultRouteMatcher()
     }
     /// 获取所有已注册的路由
     /// - Returns: 路由模式到可路由类型的字典
@@ -360,22 +360,22 @@ public actor RouterState {
         return routes.mapValues { $0.routableType }
     }
     // MARK: - 路由匹配与缓存
-    
+
     /// 匹配URL对应的路由
     /// - Parameter url: 目标URL
     /// - Returns: 匹配结果元组(路由模式, 可路由类型, 参数)（可选）
     func matchRoute(_ url: URL) async -> (pattern: RoutePattern, type: Routable.Type, parameters: RouterParameters)? {
         let urlString = url.absoluteString
-        
+
         // 先检查高级缓存
         if let cachedResult = await routeCache.get(urlString) {
             return (cachedResult.pattern, cachedResult.type, cachedResult.parameters)
         }
-        
+
         // 解析URL路径
         let path = url.path
         let pathComponents = path.components(separatedBy: "/").filter { !$0.isEmpty }
-        
+
         // 使用优化的Trie树查找匹配的路由
         guard let (pattern, parameters) = await routeTrie.find(pathComponents),
               let routeEntry = routes[pattern] else {
@@ -383,61 +383,61 @@ public actor RouterState {
         }
         let routableType = routeEntry.routableType
         let scheme = routeEntry.scheme
-        
+
         // 参数清理（如果启用）
         var sanitizedParameters = parameters
         if enableParameterSanitization {
             sanitizedParameters = RouterSecurity.shared.sanitizeParameters(parameters) ?? parameters
         }
-        
+
         // 缓存匹配结果到高级缓存
         await routeCache.set(urlString, pattern: pattern, routableType: routableType, parameters: sanitizedParameters, scheme: scheme)
-        
+
         return (pattern, routableType, sanitizedParameters)
     }
-    
+
     /// 清理路由缓存（清理过期项和统计信息）
     func cleanupRouteCache() async {
         await routeCache.cleanupExpiredItems()
     }
-    
+
     /// 获取缓存统计信息
     func getCacheStatistics() async -> (hitCount: Int, missCount: Int, hitRate: Double, cacheSize: Int, hotCacheSize: Int, precompiledCacheSize: Int) {
         return await routeCache.getStatistics()
     }
-    
+
     /// 重置缓存统计信息
     func resetCacheStatistics() async {
         await routeCache.resetStatistics()
     }
-    
+
     /// 清空所有缓存
     func clearRouteCache() async {
         await routeCache.clearAll()
     }
-    
+
     /// 设置路由缓存最大大小
     func setRouteCacheMaxSize(_ size: Int) async {
         await routeCache.setMaxCacheSize(size)
     }
-    
+
     /// 设置热点缓存大小
     func setHotCacheSize(_ size: Int) async {
         await routeCache.setHotCacheSize(size)
     }
-    
+
     /// 设置热点阈值
     func setHotThreshold(_ threshold: Int) async {
         await routeCache.setHotThreshold(threshold)
     }
-    
+
     /// 设置缓存过期时间
     func setCacheExpirationTime(_ time: TimeInterval) async {
         await routeCache.setCacheExpirationTime(time)
     }
-    
+
     // MARK: - 模块清理辅助
-    
+
     /// 清理指定模块的所有关联路由
     /// - Parameter moduleName: 模块名称
     func cleanupRoutes(for moduleName: String) async {
@@ -452,7 +452,7 @@ public actor RouterState {
         // 清理与该模块相关的缓存（通过清空整个缓存，因为无法精确过滤）
         await routeCache.clearAll()
     }
-    
+
     /// 获取所有过期模块的名称
     /// - Parameter currentTime: 当前时间
     /// - Returns: 过期模块名称数组
@@ -462,7 +462,7 @@ public actor RouterState {
                 // 弱引用已失效的模块直接视为过期
                 return name
             }
-            
+
             // 检查是否超过过期时间
             if currentTime.timeIntervalSince(module.lastUsedTime) > moduleExpirationTime {
                 return name
@@ -470,18 +470,18 @@ public actor RouterState {
             return nil
         }
     }
-    
+
     // MARK: - 权限管理
-    
+
     /// 获取指定路由的权限配置
     /// - Parameter routePattern: 路由模式
     /// - Returns: 权限配置（可选）
     func getRoutePermission(for routePattern: RoutePattern) -> RoutePermission? {
         return routePermissions[routePattern]
     }
-    
+
     // MARK: - 状态重置（主要用于测试）
-    
+
     /// 重置所有状态数据
     func reset() async {
         modules.removeAll()
@@ -504,44 +504,44 @@ public actor RouterState {
         enableParameterSanitization = true
         permissionValidator = DefaultPermissionValidator()
     }
-    
+
     // MARK: - 配置参数访问器
-    
+
     /// 获取最大重试次数
     func getMaxRetryCount() -> Int { maxRetryCount }
     /// 设置最大重试次数
     func setMaxRetryCount(_ value: Int) { maxRetryCount = value }
-    
+
     /// 获取重试延迟时间（秒）
     func getRetryDelay() -> TimeInterval { retryDelay }
     /// 设置重试延迟时间（秒）
     func setRetryDelay(_ value: TimeInterval) { retryDelay = value }
-    
+
     /// 获取模块过期时间（秒）
     func getModuleExpirationTime() -> TimeInterval { moduleExpirationTime }
     /// 设置模块过期时间（秒）
     func setModuleExpirationTime(_ value: TimeInterval) { moduleExpirationTime = value }
-    
+
     /// 获取日志启用状态
     func getEnableLogging() -> Bool { enableLogging }
     /// 设置日志启用状态
     func setEnableLogging(_ value: Bool) { enableLogging = value }
-    
+
     /// 获取清理间隔时间（秒）
     func getCleanupInterval() -> TimeInterval { cleanupInterval }
     /// 设置清理间隔时间（秒）
     func setCleanupInterval(_ value: TimeInterval) { cleanupInterval = value }
-    
+
     /// 获取路由缓存大小
     func getCacheSize() -> Int { cacheSize }
     /// 设置路由缓存大小
     func setCacheSize(_ value: Int) { cacheSize = value }
-    
+
     /// 获取参数清理启用状态
     func getEnableParameterSanitization() -> Bool { enableParameterSanitization }
     /// 设置参数清理启用状态
     func setEnableParameterSanitization(_ value: Bool) { enableParameterSanitization = value }
-    
+
     /// 设置权限验证器
     func setPermissionValidator(_ validator: RoutePermissionValidator) {
         permissionValidator = validator
@@ -550,16 +550,16 @@ public actor RouterState {
     func getPermissionValidator() -> RoutePermissionValidator {
         return permissionValidator
     }
-    
+
     // MARK: - 导航任务管理
-    
+
     /// 获取当前导航任务
     #if swift(>=5.5) && canImport(_Concurrency)
     @available(iOS 13.0, macOS 10.15, *)
     func getCurrentNavigationTask() -> Task<Void, Error>? {
         return currentNavigationTask
     }
-    
+
     /// 设置当前导航任务
     @available(iOS 13.0, macOS 10.15, *)
     func setCurrentNavigationTask(_ task: Task<Void, Error>?) {

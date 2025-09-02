@@ -17,17 +17,17 @@ extension Router {
     func generateURL(for routableType: Routable.Type, parameters: RouterParameters? = nil) async -> String? {
         // 通过RouterState安全获取所有路由（异步操作）
         let allRoutes = await getAllRoutes()
-        
+
         // 查找该类型对应的路由模式
         guard let (pattern, _) = allRoutes.first(where: { $0.value == routableType }) else {
             log("未找到 \(routableType) 对应的路由模式", level: .warning)
             return nil
         }
-        
+
         // 替换模式中的参数占位符
         return replaceParameters(in: pattern.pattern, with: parameters ?? [:])
     }
-    
+
     /// 根据路由名称和参数生成URL
     /// - Parameters:
     ///   - routeName: 路由名称（如"/UserModule/profile"）
@@ -36,18 +36,18 @@ extension Router {
     func generateURL(for routeName: String, parameters: RouterParameters? = nil) -> String? {
         do {
             // 验证路由模式格式
-            let _ = try RoutePattern(routeName)
+            _ = try RoutePattern(routeName)
             return replaceParameters(in: routeName, with: parameters ?? [:])
         } catch {
             log("生成URL失败: \(error)", level: .error)
             return nil
         }
     }
-    
+
     /// 替换路由模式中的参数占位符
     private func replaceParameters(in pattern: String, with parameters: RouterParameters) -> String {
         var result = pattern
-        
+
         // 替换参数占位符（如:id -> 实际值）
         parameters.forEach { key, value in
             let placeholder = ":\(key)"
@@ -58,16 +58,16 @@ extension Router {
             } else {
                 valueString = "\(value)".addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? "\(value)"
             }
-            
+
             result = result.replacingOccurrences(of: placeholder, with: valueString)
         }
-        
+
         // 移除可选参数占位符（如:name?）
         result = result.replacingOccurrences(of: "\\:\\w+\\?", with: "", options: .regularExpression)
-        
+
         return result
     }
-    
+
     /// 从RouterState获取所有路由（辅助方法）
     private func getAllRoutes() async -> [RoutePattern: Routable.Type] {
         // 这里需要在RouterState中添加获取所有路由的方法

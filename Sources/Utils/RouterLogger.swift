@@ -14,7 +14,7 @@ public enum LogLevel: Int, Comparable {
     case info     // 普通信息
     case warning  // 警告
     case error    // 错误
-    
+
     // 实现比较运算符，用于日志级别过滤
     public static func < (lhs: LogLevel, rhs: LogLevel) -> Bool {
         return lhs.rawValue < rhs.rawValue
@@ -39,29 +39,34 @@ class ConsoleLogOutput: LogOutput {
 class FileLogOutput: LogOutput {
     private let logDirectory: URL
     private let maxFileSize: UInt64 = 10 * 1024 * 1024 // 10MB
-    
+
     init() {
         // 获取文档目录中的日志文件夹路径
-        let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        guard let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            // 如果无法获取文档目录，使用临时目录作为备选
+            logDirectory = FileManager.default.temporaryDirectory.appendingPathComponent("Logs")
+            try? FileManager.default.createDirectory(at: logDirectory, withIntermediateDirectories: true)
+            return
+        }
         logDirectory = documentsDir.appendingPathComponent("Logs")
-        
+
         // 创建日志文件夹（如果不存在）
         try? FileManager.default.createDirectory(at: logDirectory, withIntermediateDirectories: true)
     }
-    
+
     func log(_ message: String, level: LogLevel, file: String, line: Int, function: String) {
         let fileName = (file as NSString).lastPathComponent
         let timestamp = Date().formatted("yyyy-MM-dd HH:mm:ss.SSS")
         let logLine = "\(timestamp) [\(level)] \(fileName):\(line) \(function) - \(message)\n"
-        
+
         // 异步写入日志
         DispatchQueue.global().async {
             if let data = logLine.data(using: .utf8) {
                 let logFileURL = self.getLogFileURL()
-                
+
                 // 检查文件大小，如果超过限制则创建新文件
                 self.checkAndRotateLogFile(logFileURL)
-                
+
                 if FileManager.default.fileExists(atPath: logFileURL.path) {
                     if let fileHandle = try? FileHandle(forWritingTo: logFileURL) {
                         fileHandle.seekToEndOfFile()
@@ -75,7 +80,7 @@ class FileLogOutput: LogOutput {
             }
         }
     }
-    
+
     // 获取当前日志文件URL（按日期命名）
     private func getLogFileURL() -> URL {
         let dateFormatter = DateFormatter()
@@ -83,11 +88,11 @@ class FileLogOutput: LogOutput {
         let dateString = dateFormatter.string(from: Date())
         return logDirectory.appendingPathComponent("router_log_\(dateString).txt")
     }
-    
+
     // 检查并轮转日志文件
     private func checkAndRotateLogFile(_ fileURL: URL) {
         guard FileManager.default.fileExists(atPath: fileURL.path) else { return }
-        
+
         do {
             let attributes = try FileManager.default.attributesOfItem(atPath: fileURL.path)
             if let fileSize = attributes[.size] as? UInt64, fileSize >= maxFileSize {
@@ -111,17 +116,17 @@ class RemoteLogOutput: LogOutput {
     private var logBuffer: [String] = []
     private let batchSize = 10
     private var isUploading = false
-    
+
     init(serverURL: URL, apiKey: String? = nil) {
         self.serverURL = serverURL
         self.apiKey = apiKey
     }
-    
+
     func log(_ message: String, level: LogLevel, file: String, line: Int, function: String) {
         let fileName = (file as NSString).lastPathComponent
         let timestamp = Date().formatted("yyyy-MM-dd HH:mm:ss.SSS")
         let logLine = "\(timestamp) [\(level)] \(fileName):\(line) \(function) - \(message)"
-        
+
         // 添加到缓冲区
         queue.async {
             self.logBuffer.append(logLine)
@@ -131,26 +136,26 @@ class RemoteLogOutput: LogOutput {
             }
         }
     }
-    
+
     // 上传日志到服务器
     private func uploadLogs() {
         queue.async {
             guard !self.logBuffer.isEmpty else { return }
-            
+
             self.isUploading = true
             let logsToUpload = self.logBuffer
             self.logBuffer.removeAll()
-            
+
             // 构建请求
             var request = URLRequest(url: self.serverURL)
             request.httpMethod = "POST"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            
+
             // 添加API密钥（如果有）
             if let apiKey = self.apiKey {
                 request.setValue(apiKey, forHTTPHeaderField: "Authorization")
             }
-            
+
             // 准备日志数据
             let logData = ["logs": logsToUpload]
             do {
@@ -160,14 +165,14 @@ class RemoteLogOutput: LogOutput {
                 self.isUploading = false
                 return
             }
-            
+
             // 发送请求
-            let task = URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            let task = URLSession.shared.dataTask(with: request) { [weak self] _, response, error in
                 guard let self = self else { return }
-                
+
                 self.queue.async {
                     self.isUploading = false
-                    
+
                     if let error = error {
                         print("Failed to upload logs: \(error)")
                         // 失败时将日志重新添加到缓冲区
@@ -177,7 +182,7 @@ class RemoteLogOutput: LogOutput {
                         // 失败时将日志重新添加到缓冲区
                         self.logBuffer.insert(contentsOf: logsToUpload, at: 0)
                     }
-                    
+
                     // 如果还有未上传的日志，继续上传
                     if self.logBuffer.count >= self.batchSize {
                         self.uploadLogs()
@@ -221,7 +226,7 @@ public actor RouterLogger {
     /// 从远程配置更新日志级别
     /// - Parameter configURL: 远程配置URL
     public func updateLogLevelFromRemoteConfig(configURL: URL) {
-        URLSession.shared.dataTask(with: configURL) { data, response, error in
+        URLSession.shared.dataTask(with: configURL) { data, _, error in
             guard let data = data, error == nil else {
                 print("Failed to fetch remote log config: \(error?.localizedDescription ?? "Unknown error")")
                 return

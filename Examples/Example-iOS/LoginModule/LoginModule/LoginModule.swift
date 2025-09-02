@@ -79,5 +79,3 @@ public class LoginModule: ModuleProtocol, @unchecked Sendable {
         UserDefaults.standard.removeObject(forKey: "username")
     }
 }
-
-

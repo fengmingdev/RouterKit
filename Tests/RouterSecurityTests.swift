@@ -22,7 +22,7 @@ class RouterSecurityTests: XCTestCase {
             "age": RangeParameterRule(type: Int.self, min: 0, max: 120, isRequired: false),
             "email": FormatParameterRule(type: String.self, regex: "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$", formatDescription: "valid email format", isRequired: true)
         ]
-        
+
         // 测试有效参数
         let validParams: [String: Any] = [
             "name": "John Doe",
@@ -32,7 +32,7 @@ class RouterSecurityTests: XCTestCase {
         let validResult = security.validateParameters(validParams, against: rules)
         XCTAssertTrue(validResult.isValid)
         XCTAssertTrue(validResult.errors.isEmpty)
-        
+
         // 测试无效参数
         let invalidParams: [String: Any] = [
             "name": 123, // 错误类型
@@ -42,7 +42,7 @@ class RouterSecurityTests: XCTestCase {
         let invalidResult = security.validateParameters(invalidParams, against: rules)
         XCTAssertFalse(invalidResult.isValid)
         XCTAssertFalse(invalidResult.errors.isEmpty)
-        
+
         // 测试缺少必需参数
         let missingParams: [String: Any] = [
             "age": 25
@@ -65,10 +65,10 @@ class RouterSecurityTests: XCTestCase {
         // 验证HTML标签被移除
         XCTAssertEqual(sanitizedParams?["xss"] as? String, "alert(&#39;test&#39;)")
         XCTAssertEqual(sanitizedParams?["html"] as? String, "content")
-        
+
         // 验证特殊字符被转义
         XCTAssertEqual(sanitizedParams?["special"] as? String, "test&amp;&lt;&gt;&quot;&#39;chars")
-        
+
         // 验证正常文本不受影响
         XCTAssertEqual(sanitizedParams?["normal"] as? String, "normal_text")
     }

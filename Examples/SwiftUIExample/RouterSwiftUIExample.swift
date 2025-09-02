@@ -61,7 +61,7 @@ class RouterState: ObservableObject {
 
 // 详情视图
 struct DetailView: View {
-    var itemId: String? = nil
+    var itemId: String?
 
     var body: some View {
         VStack {

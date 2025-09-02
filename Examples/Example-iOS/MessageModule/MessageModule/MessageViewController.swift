@@ -10,11 +10,11 @@ import RouterKit_Swift
 
 // 消息视图控制器
 public class MessageViewController: UIViewController, Routable {
-    
+
     public static func viewController(with parameters: RouterParameters?) -> UIViewController? {
         return MessageViewController()
     }
-    
+
     public static func performAction(_ action: String, parameters: RouterParameters?, completion: @escaping RouterCompletion) {
         if action == "updateMessage" {
             // 执行更新消息的操作
@@ -23,29 +23,29 @@ public class MessageViewController: UIViewController, Routable {
             completion(.failure(RouterError.actionNotFound(action)))
         }
     }
-    
+
     public override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .white
-        
+
         let titleLabel = UILabel(frame: CGRect(x: 0, y: 100, width: view.bounds.width, height: 40))
         titleLabel.text = "消息页面"
         titleLabel.textAlignment = .center
         titleLabel.font = UIFont.boldSystemFont(ofSize: 24)
         view.addSubview(titleLabel)
-        
+
         let backButton = UIButton(frame: CGRect(x: (view.bounds.width - 100)/2, y: 200, width: 100, height: 40))
         backButton.setTitle("返回", for: .normal)
         backButton.setTitleColor(.blue, for: .normal)
         backButton.addTarget(self, action: #selector(backButtonTapped), for: .touchUpInside)
         view.addSubview(backButton)
     }
-    
+
     @objc private func backButtonTapped() {
         navigationController?.popViewController(animated: true)
         Router.popToRoot()
     }
-    
+
     /// 获取消息列表
     /// - Parameters:
     ///   - page: 页码

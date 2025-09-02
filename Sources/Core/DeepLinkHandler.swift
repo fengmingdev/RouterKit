@@ -24,9 +24,6 @@ typealias UIApplicationDelegate = NSObjectProtocol
 extension NSApplication {
     struct OpenURLOptionsKey: Hashable, Equatable, RawRepresentable {
         let rawValue: String
-        init(rawValue: String) {
-            self.rawValue = rawValue
-        }
         static let sourceApplication = OpenURLOptionsKey(rawValue: "sourceApplication")
     }
 }
@@ -37,23 +34,23 @@ extension NSApplication {
 final class DeepLinkHandler {
     static let shared = DeepLinkHandler()
     private init() {}
-    
+
     // 已注册的安全URL Scheme
     private var registeredSchemes: Set<String> = []
-    
+
     // 信任的来源应用列表
     private var trustedSources: Set<String> = []
-    
+
     // 最大允许的路径深度，默认为5层
     private var maxPathDepth: Int = 5
-    
+
     /// 设置最大允许的路径深度
     /// - Parameter depth: 最大路径深度值
     func setMaximumPathDepth(_ depth: Int) {
         maxPathDepth = max(1, depth) // 确保至少为1
         Router.shared.log("已设置最大路径深度: \(maxPathDepth)", level: .info)
     }
-    
+
     /// 处理系统URL打开请求
     /// - Parameters:
     ///   - url: 外部URL
@@ -66,27 +63,27 @@ final class DeepLinkHandler {
             Router.shared.log("URL缺少scheme，拒绝处理", level: .warning)
             return false
         }
-        
+
         // 2. 验证scheme是否已注册
         guard registeredSchemes.contains(scheme.lowercased()) else {
             Router.shared.log("未注册的URL Scheme: \(scheme)", level: .warning)
             return false
         }
-        
+
         // 3. 验证来源应用
         let sourceApplication = options?[PlatformOpenURLOptionsKey.sourceApplication] as? String ?? "unknown"
         if !trustedSources.isEmpty && !trustedSources.contains(sourceApplication) {
             Router.shared.log("不信任的来源应用: \(sourceApplication)", level: .warning)
             return false
         }
-        
+
         // 4. 验证URL长度
         let urlString = url.absoluteString
         if urlString.count > 2048 {
             Router.shared.log("URL过长，可能存在安全风险", level: .warning)
             return false
         }
-        
+
         // 5. 检查路径安全性
         guard isValidPath(url.path) else {
             Router.shared.log("URL路径存在安全风险", level: .warning)
@@ -121,23 +118,23 @@ final class DeepLinkHandler {
             return false
         }
     }
-    
+
     /// 注册URL Scheme支持
     /// - Parameter schemes: 安全的URL Scheme列表
     func registerURLSchemes(_ schemes: [String]) {
         registeredSchemes = Set(schemes.map { $0.lowercased() })
-        Router.shared.log("已注册URL Scheme: \(registeredSchemes.joined(separator:","))", level: .info)
+        Router.shared.log("已注册URL Scheme: \(registeredSchemes.joined(separator: ","))", level: .info)
     }
-    
+
     /// 添加信任的来源应用
     /// - Parameter sources: 信任的来源应用Bundle ID列表
     func addTrustedSources(_ sources: [String]) {
         trustedSources.formUnion(sources)
         if #available(iOS 13.0, macOS 10.15, *) {
-            Router.shared.log("已添加信任的来源应用: \(sources.joined(separator:","))", level: .info)
+            Router.shared.log("已添加信任的来源应用: \(sources.joined(separator: ","))", level: .info)
         }
     }
-    
+
     /// 验证URL路径是否安全
     /// - Parameter path: URL路径
     /// - Returns: 是否安全
@@ -150,7 +147,7 @@ final class DeepLinkHandler {
                 return false
             }
         }
-        
+
         // 2. 限制路径深度
         let pathComponents = path.components(separatedBy: "/").filter { !$0.isEmpty }
         if pathComponents.count > maxPathDepth {
@@ -159,7 +156,7 @@ final class DeepLinkHandler {
             }
             return false
         }
-        
+
         // 3. 限制只允许字母、数字、下划线和常见分隔符
         let allowedCharacters = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_/-.")
         let disallowedRange = path.rangeOfCharacter(from: allowedCharacters.inverted)
@@ -192,19 +189,19 @@ extension UIApplicationDelegate {
         DispatchQueue.main.async {
             if #available(iOS 13.0, macOS 10.15, *) {
                 Task {
-                    let _ = await DeepLinkHandler.shared.handle(url: url, options: options)
+                    _ = await DeepLinkHandler.shared.handle(url: url, options: options)
                 }
             }
         }
         return true
     }
-    
+
     func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([Any]?) -> Void) -> Bool {
         if userActivity.activityType == NSUserActivityTypeBrowsingWeb, let url = userActivity.webpageURL {
             DispatchQueue.main.async {
                 if #available(iOS 13.0, macOS 10.15, *) {
                     Task {
-                        let _ = await DeepLinkHandler.shared.handle(url: url, options: nil)
+                        _ = await DeepLinkHandler.shared.handle(url: url, options: nil)
                     }
                 }
             }
