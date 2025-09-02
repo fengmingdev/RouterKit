@@ -121,7 +121,7 @@ public actor RouterProfiler {
     private func recordMeasurement(name: String, duration: TimeInterval) {
         let now = Date()
         
-        if var existing = measurements[name] {
+        if let existing = measurements[name] {
             let newCallCount = existing.callCount + 1
             let newTotalTime = existing.totalTime + duration
             let newAverageTime = newTotalTime / Double(newCallCount)
@@ -166,7 +166,7 @@ public actor RouterProfiler {
         Task {
             while isEnabled {
                 try? await Task.sleep(nanoseconds: 5_000_000_000) // 5秒
-                await capturePerformanceSnapshot()
+                capturePerformanceSnapshot()
             }
         }
     }
@@ -384,7 +384,7 @@ public actor RouterProfiler {
         let kerr = task_threads(mach_task_self_, &threadList, &threadCount)
         
         if kerr == KERN_SUCCESS {
-            vm_deallocate(mach_task_self_, vm_address_t(bitPattern: threadList), vm_size_t(threadCount * MemoryLayout<thread_t>.size))
+            vm_deallocate(mach_task_self_, vm_address_t(bitPattern: threadList), vm_size_t(Int(threadCount) * MemoryLayout<thread_t>.size))
             return Int(threadCount)
         } else {
             return 0
@@ -395,7 +395,7 @@ public actor RouterProfiler {
 // MARK: - 性能分析扩展
 
 @available(iOS 13.0, macOS 10.15, *)
-extension RouterCore {
+extension Router {
     /// 启用性能分析
     public func enableProfiling() {
         Task {

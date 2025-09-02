@@ -151,9 +151,7 @@ final class DeepLinkHandler {
         // 2. 限制路径深度
         let pathComponents = path.components(separatedBy: "/").filter { !$0.isEmpty }
         if pathComponents.count > maxPathDepth {
-            if #available(iOS 13.0, macOS 10.15, *) {
-                Router.shared.log("URL路径深度(\(pathComponents.count))超过最大限制(\(maxPathDepth))", level: .warning)
-            }
+            Router.shared.log("URL路径深度(\(pathComponents.count))超过最大限制(\(maxPathDepth))", level: .warning)
             return false
         }
 
@@ -170,11 +168,9 @@ extension PlatformApplication: PlatformApplicationProtocol {
     @available(iOS 13.0, macOS 10.15, *)
     func open(_ url: URL, options: [PlatformOpenURLOptionsKey: Any], completionHandler: ((Bool) -> Void)?) {
         DispatchQueue.main.async {
-            if #available(iOS 13.0, macOS 10.15, *) {
-                Task {
-                    let result = await DeepLinkHandler.shared.handle(url: url, options: options)
-                    completionHandler?(result)
-                }
+            Task {
+                let result = await DeepLinkHandler.shared.handle(url: url, options: options)
+                completionHandler?(result)
             }
         }
     }
