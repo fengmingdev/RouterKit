@@ -49,8 +49,6 @@ public final class Router: NSObject, @unchecked Sendable {
     private var lifecycleObservers = WeakArray<AnyObject>()
     /// 命名空间缓存
     public var namespaces: [String: RouterNamespace] = [:]
-    // 用于标识正在进行的导航任务
-    public var currentNavigationTask: Task<Void, Error>?
     
     // MARK: - 配置参数外部访问接口
         
@@ -134,6 +132,18 @@ public final class Router: NSObject, @unchecked Sendable {
     /// 获取当前权限验证器
     public func getPermissionValidator() async -> RoutePermissionValidator {
         await state.getPermissionValidator()
+    }
+    
+    // MARK: - 导航任务管理
+    
+    /// 获取当前导航任务
+    public func getCurrentNavigationTask() async -> Task<Void, Error>? {
+        await state.getCurrentNavigationTask()
+    }
+    
+    /// 设置当前导航任务
+    public func setCurrentNavigationTask(_ task: Task<Void, Error>?) async {
+        await state.setCurrentNavigationTask(task)
     }
     
     // MARK: - 模块管理
@@ -439,9 +449,12 @@ public final class Router: NSObject, @unchecked Sendable {
                     line: Int = #line,
                     function: String = #function)
     {
-        // 这里需要获取enableLogging状态，可能需要通过异步方法
-        // 为简单起见，我们假设日志总是启用，或者添加一个获取状态的异步方法
-        RouterLogger.shared.log(message, level: level, file: file, line: line, function: function)
+        Task {
+            let enableLogging = await state.getEnableLogging()
+            if enableLogging {
+                await RouterLogger.shared.log(message, level: level, file: file, line: line, function: function)
+            }
+        }
     }
     
     /// 启动模块清理定时器

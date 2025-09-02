@@ -189,41 +189,38 @@ class RemoteLogOutput: LogOutput {
 }
 
 // MARK: - 日志管理器
-public final class RouterLogger: @unchecked Sendable {
-    static let shared = RouterLogger()
+public actor RouterLogger {
+    public static let shared = RouterLogger()
     private init() {}
 
-    private let queue = DispatchQueue(label: "com.routerkit.logger", attributes: .concurrent)
     private var _minimumLevel: LogLevel = .info  // 最小日志级别
     private var _outputs: [LogOutput] = [ConsoleLogOutput()]  // 日志输出渠道
 
-    var minimumLevel: LogLevel {
+    public var minimumLevel: LogLevel {
         get {
-            queue.sync { _minimumLevel }
+            _minimumLevel
         }
         set {
-            queue.async(flags: .barrier) { self._minimumLevel = newValue }
+            _minimumLevel = newValue
         }
     }
 
     /// 添加日志输出渠道
-    func addOutput(_ output: LogOutput) {
-        queue.async(flags: .barrier) {
-            self._outputs.append(output)
-        }
+    public func addOutput(_ output: LogOutput) {
+        _outputs.append(output)
     }
 
     /// 设置最小日志级别
-    public func setMinimumLogLevel(_ level: LogLevel) {
+    public func setMinimumLogLevel(_ level: LogLevel) async {
         minimumLevel = level
-        log("日志级别已设置为: \(level)", level: .info)
+        await log("日志级别已设置为: \(level)", level: .info)
     }
 
     /// 从远程配置更新日志级别
     /// - Parameter configURL: 远程配置URL
     public func updateLogLevelFromRemoteConfig(configURL: URL) {
-        URLSession.shared.dataTask(with: configURL) { [weak self] data, response, error in
-            guard let self = self, let data = data, error == nil else {
+        URLSession.shared.dataTask(with: configURL) { data, response, error in
+            guard let data = data, error == nil else {
                 print("Failed to fetch remote log config: \(error?.localizedDescription ?? "Unknown error")")
                 return
             }
@@ -232,8 +229,8 @@ public final class RouterLogger: @unchecked Sendable {
                 if let config = try JSONSerialization.jsonObject(with: data) as? [String: String],
                    let logLevelString = config["logLevel"],
                    let logLevel = LogLevel(rawValue: Int(logLevelString) ?? -1) {
-                    DispatchQueue.main.async {
-                        self.setMinimumLogLevel(logLevel)
+                    Task {
+                        await RouterLogger.shared.setMinimumLogLevel(logLevel)
                     }
                 }
             } catch {
@@ -247,12 +244,12 @@ public final class RouterLogger: @unchecked Sendable {
              level: LogLevel,
              file: String = #file,
              line: Int = #line,
-             function: String = #function) {
+             function: String = #function) async {
         // 过滤低于最小级别的日志
         guard level >= minimumLevel else { return }
 
         // 读取当前输出渠道的快照
-        let outputs = queue.sync { _outputs }
+        let outputs = _outputs
 
         // 向所有输出渠道发送日志
         outputs.forEach {

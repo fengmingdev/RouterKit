@@ -64,59 +64,99 @@ public actor RouteTrie {
 
     // MARK: - 查找路由模式
     func find(_ pathComponents: [String]) -> (pattern: RoutePattern, parameters: RouterParameters)? {
-        var parameters: RouterParameters = [:]
         var bestMatch: (pattern: RoutePattern, parameters: RouterParameters)?
+        var bestPriority = Int.min
 
-        findBestMatch(pathComponents, index: 0, node: root, parameters: &parameters, bestMatch: &bestMatch)
+        // 遍历所有可能的匹配模式
+        for (pattern, priority) in getAllPatterns() {
+            if let parameters = matchPattern(pattern, with: pathComponents) {
+                if priority > bestPriority {
+                    bestMatch = (pattern, parameters)
+                    bestPriority = priority
+                }
+            }
+        }
+        
         return bestMatch
     }
-
-    // MARK: - 递归查找最佳匹配
-    private func findBestMatch(_ components: [String], index: Int, node: RouteTrieNode, parameters: inout RouterParameters, bestMatch: inout (pattern: RoutePattern, parameters: RouterParameters)?) {
-
-        // 已到达路径末尾
-        if index == components.count {
-            if node.isEndOfPattern && !node.routePatterns.isEmpty {
-                // 已按优先级排序，直接取第一个
-                let bestPattern = node.routePatterns.first!.pattern
-                bestMatch = (bestPattern, parameters)
-            }
-            return
+    
+    // MARK: - 获取所有注册的模式
+    private func getAllPatterns() -> [(RoutePattern, Int)] {
+        var allPatterns: [(RoutePattern, Int)] = []
+        collectPatterns(from: root, patterns: &allPatterns)
+        return allPatterns
+    }
+    
+    // MARK: - 递归收集所有模式
+    private func collectPatterns(from node: RouteTrieNode, patterns: inout [(RoutePattern, Int)]) {
+        if node.isEndOfPattern {
+            patterns.append(contentsOf: node.routePatterns)
         }
-
-        let component = components[index]
-
-        // 1. 尝试字面量匹配
-        if let childNode = node.children[component] {
-            findBestMatch(components, index: index + 1, node: childNode, parameters: &parameters, bestMatch: &bestMatch)
+        
+        for child in node.children.values {
+            collectPatterns(from: child, patterns: &patterns)
         }
-
-        // 2. 尝试参数匹配
-        if let childNode = node.parameterChild {
-            // 假设参数组件是RoutePattern中的parameter类型
-            // 这里简化处理，实际需要记录参数名称
-            parameters["param_\(index)"] = component
-            findBestMatch(components, index: index + 1, node: childNode, parameters: &parameters, bestMatch: &bestMatch)
-            parameters.removeValue(forKey: "param_\(index)")
+        
+        if let paramChild = node.parameterChild {
+            collectPatterns(from: paramChild, patterns: &patterns)
         }
-
-        // 3. 尝试正则表达式匹配
-        if let (childNode, regexPattern) = node.regexChild {
-            do {
-                let regex = try NSRegularExpression(pattern: regexPattern)
-                let matches = regex.matches(in: component, range: NSRange(location: 0, length: component.utf16.count))
-                if !matches.isEmpty {
-                    findBestMatch(components, index: index + 1, node: childNode, parameters: &parameters, bestMatch: &bestMatch)
+        
+        if let wildcardChild = node.wildcardChild {
+            collectPatterns(from: wildcardChild, patterns: &patterns)
+        }
+        
+        if let regexChild = node.regexChild {
+            collectPatterns(from: regexChild.node, patterns: &patterns)
+        }
+    }
+    
+    // MARK: - 匹配单个模式
+    private func matchPattern(_ pattern: RoutePattern, with pathComponents: [String]) -> RouterParameters? {
+        guard pattern.components.count == pathComponents.count else {
+            return nil
+        }
+        
+        var parameters: RouterParameters = [:]
+        
+        for (index, component) in pattern.components.enumerated() {
+            let pathComponent = pathComponents[index]
+            
+            switch component {
+            case .literal(let value):
+                if value != pathComponent {
+                    return nil
                 }
-            } catch {
-                // 正则表达式错误，忽略
+                
+            case .parameter(let name, let isOptional):
+                if pathComponent.isEmpty && !isOptional {
+                    return nil
+                }
+                if !pathComponent.isEmpty {
+                    parameters[name] = pathComponent
+                }
+                
+            case .wildcard:
+                // 通配符匹配任何值
+                break
+                
+            case .regex(let regex, let captureNames):
+                let range = NSRange(location: 0, length: pathComponent.utf16.count)
+                guard let match = regex.firstMatch(in: pathComponent, range: range) else {
+                    return nil
+                }
+                
+                // 提取捕获组
+                for (captureIndex, captureName) in captureNames.enumerated() {
+                    let captureRange = match.range(at: captureIndex + 1)
+                    if captureRange.location != NSNotFound {
+                        let captureValue = (pathComponent as NSString).substring(with: captureRange)
+                        parameters[captureName] = captureValue
+                    }
+                }
             }
         }
-
-        // 4. 尝试通配符匹配
-        if let childNode = node.wildcardChild {
-            findBestMatch(components, index: index + 1, node: childNode, parameters: &parameters, bestMatch: &bestMatch)
-        }
+        
+        return parameters
     }
 
     // MARK: - 移除路由模式

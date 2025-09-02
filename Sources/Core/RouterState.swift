@@ -90,6 +90,10 @@ public actor RouterState {
     /// 用于验证路由访问权限
     var permissionValidator: RoutePermissionValidator = DefaultPermissionValidator()
     
+    /// 当前导航任务
+    /// 用于标识正在进行的导航任务，避免并发冲突
+    var currentNavigationTask: Task<Void, Error>?
+    
     // MARK: - 模块管理
     
     /// 注册模块
@@ -504,5 +508,17 @@ public actor RouterState {
     /// 获取当前权限验证器
     func getPermissionValidator() -> RoutePermissionValidator {
         return permissionValidator
+    }
+    
+    // MARK: - 导航任务管理
+    
+    /// 获取当前导航任务
+    func getCurrentNavigationTask() -> Task<Void, Error>? {
+        return currentNavigationTask
+    }
+    
+    /// 设置当前导航任务
+    func setCurrentNavigationTask(_ task: Task<Void, Error>?) {
+        currentNavigationTask = task
     }
 }
