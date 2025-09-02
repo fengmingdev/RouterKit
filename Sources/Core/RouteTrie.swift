@@ -11,9 +11,31 @@ class RouteTrieNode {
     var children: [String: RouteTrieNode] = [:]
     var parameterChild: RouteTrieNode?
     var wildcardChild: RouteTrieNode?
-    var regexChild: (node: RouteTrieNode, pattern: String)?
+    var regexChild: (node: RouteTrieNode, regex: NSRegularExpression, captureNames: [String])?
     var routePatterns: [(pattern: RoutePattern, priority: Int)] = []  // 存储模式和优先级
     var isEndOfPattern: Bool = false
+    
+    // 性能优化：缓存参数名和捕获组名称
+    var cachedParameterName: String?
+    var cachedCaptureNames: [String]?
+    
+    // 性能优化：按优先级排序的模式（最高优先级在前）
+    private var _sortedPatterns: [(pattern: RoutePattern, priority: Int)]?
+    
+    var sortedPatterns: [(pattern: RoutePattern, priority: Int)] {
+        if let cached = _sortedPatterns {
+            return cached
+        }
+        let sorted = routePatterns.sorted { $0.priority > $1.priority }
+        _sortedPatterns = sorted
+        return sorted
+    }
+    
+    func invalidateCache() {
+        _sortedPatterns = nil
+        cachedParameterName = nil
+        cachedCaptureNames = nil
+    }
 }
 
 // MARK: - 路由Trie树
@@ -45,10 +67,9 @@ public actor RouteTrie {
                 }
                 currentNode = paramNode
 
-            case .regex(let regex, _):
-                let pattern = regex.pattern
-                if currentNode.regexChild?.pattern != pattern {
-                    currentNode.regexChild = (RouteTrieNode(), pattern)
+            case .regex(let regex, let captureNames):
+                if currentNode.regexChild?.regex.pattern != regex.pattern {
+                    currentNode.regexChild = (RouteTrieNode(), regex, captureNames)
                 }
                 guard let regexNode = currentNode.regexChild?.node else {
                     return // 无法继续插入
@@ -69,6 +90,28 @@ public actor RouteTrie {
         // 插入新模式并按优先级排序（降序）
         currentNode.routePatterns.append((pattern: pattern, priority: priority))
         currentNode.routePatterns.sort { $0.priority > $1.priority }
+        
+        // 缓存参数名和捕获组名称以提升性能
+        if currentNode.cachedParameterName == nil {
+            for component in pattern.components {
+                if case .parameter(let name, _) = component {
+                    currentNode.cachedParameterName = name
+                    break
+                }
+            }
+        }
+        
+        if currentNode.cachedCaptureNames == nil {
+            for component in pattern.components {
+                if case .regex(_, let captureNames) = component {
+                    currentNode.cachedCaptureNames = captureNames
+                    break
+                }
+            }
+        }
+        
+        // 使缓存失效以重新排序
+        currentNode.invalidateCache()
     }
 
     // MARK: - 查找路由模式（优化版本）
@@ -81,8 +124,8 @@ public actor RouteTrie {
         // 如果已经匹配完所有路径组件
         if componentIndex == pathComponents.count {
             if node.isEndOfPattern && !node.routePatterns.isEmpty {
-                // 返回优先级最高的模式（已按优先级排序）
-                let bestPattern = node.routePatterns[0]
+                // 返回优先级最高的模式（使用缓存的排序结果）
+                let bestPattern = node.sortedPatterns[0]
                 return (bestPattern.pattern, parameters)
             }
             return nil
@@ -105,8 +148,10 @@ public actor RouteTrie {
 
         // 2. 尝试参数匹配
         if let paramChild = node.parameterChild {
-            // 获取参数名（从第一个匹配的模式中提取）
-            if let paramName = getParameterName(from: paramChild, componentIndex: componentIndex) {
+            // 使用缓存的参数名，如果没有则回退到原方法
+            let paramName = paramChild.cachedParameterName ?? getParameterName(from: paramChild, componentIndex: componentIndex)
+            
+            if let paramName = paramName {
                 var newParameters = parameters
                 newParameters[paramName] = currentComponent
 
@@ -121,29 +166,25 @@ public actor RouteTrie {
         }
 
         // 3. 尝试正则表达式匹配
-        if let (regexChild, regexPattern) = node.regexChild {
-            if let regex = try? NSRegularExpression(pattern: regexPattern) {
-                let range = NSRange(location: 0, length: currentComponent.utf16.count)
-                if let match = regex.firstMatch(in: currentComponent, range: range) {
-                    var newParameters = parameters
+        if let (regexChild, regex, captureNames) = node.regexChild {
+            let range = NSRange(location: 0, length: currentComponent.utf16.count)
+            if let match = regex.firstMatch(in: currentComponent, range: range) {
+                var newParameters = parameters
 
-                    // 提取捕获组（如果有的话）
-                    if let captureNames = getCaptureNames(from: regexChild, componentIndex: componentIndex) {
-                        for (captureIndex, captureName) in captureNames.enumerated() {
-                            let captureRange = match.range(at: captureIndex + 1)
-                            if captureRange.location != NSNotFound {
-                                let captureValue = (currentComponent as NSString).substring(with: captureRange)
-                                newParameters[captureName] = captureValue
-                            }
-                        }
+                // 提取捕获组（使用预缓存的捕获组名称）
+                for (captureIndex, captureName) in captureNames.enumerated() {
+                    let captureRange = match.range(at: captureIndex + 1)
+                    if captureRange.location != NSNotFound {
+                        let captureValue = (currentComponent as NSString).substring(with: captureRange)
+                        newParameters[captureName] = captureValue
                     }
+                }
 
-                    if let trieMatch = findInTrie(pathComponents, node: regexChild, componentIndex: componentIndex + 1, parameters: newParameters) {
-                        let priority = getPriorityForPattern(trieMatch.pattern, in: regexChild)
-                        if priority > bestPriority {
-                            bestMatch = trieMatch
-                            bestPriority = priority
-                        }
+                if let trieMatch = findInTrie(pathComponents, node: regexChild, componentIndex: componentIndex + 1, parameters: newParameters) {
+                    let priority = getPriorityForPattern(trieMatch.pattern, in: regexChild)
+                    if priority > bestPriority {
+                        bestMatch = trieMatch
+                        bestPriority = priority
                     }
                 }
             }
@@ -167,7 +208,7 @@ public actor RouteTrie {
 
     /// 获取模式的优先级
     private func getPriorityForPattern(_ pattern: RoutePattern, in node: RouteTrieNode) -> Int {
-        return node.routePatterns.first { $0.pattern == pattern }?.priority ?? Int.min
+        return node.sortedPatterns.first { $0.pattern == pattern }?.priority ?? Int.min
     }
 
     /// 从节点中获取参数名
@@ -195,36 +236,37 @@ public actor RouteTrie {
     }
 
     // MARK: - 获取所有注册的模式
-    private func getAllPatterns() -> [(RoutePattern, Int)] {
-        var allPatterns: [(RoutePattern, Int)] = []
-        collectPatterns(from: root, patterns: &allPatterns)
-        return allPatterns
+    func getAllPatterns() -> [RoutePattern] {
+        var patterns: [RoutePattern] = []
+        collectPatterns(from: root, into: &patterns)
+        return patterns
     }
-
-    // MARK: - 递归收集所有模式
-    private func collectPatterns(from node: RouteTrieNode, patterns: inout [(RoutePattern, Int)]) {
-        if node.isEndOfPattern {
-            patterns.append(contentsOf: node.routePatterns)
+    
+    private func collectPatterns(from node: RouteTrieNode, into patterns: inout [RoutePattern]) {
+        // 收集当前节点的模式（使用缓存的排序结果）
+        for (pattern, _) in node.sortedPatterns {
+            patterns.append(pattern)
         }
-
+        
+        // 递归收集子节点的模式
         for child in node.children.values {
-            collectPatterns(from: child, patterns: &patterns)
+            collectPatterns(from: child, into: &patterns)
         }
-
+        
         if let paramChild = node.parameterChild {
-            collectPatterns(from: paramChild, patterns: &patterns)
+            collectPatterns(from: paramChild, into: &patterns)
         }
-
+        
+        if let (regexChild, _, _) = node.regexChild {
+            collectPatterns(from: regexChild, into: &patterns)
+        }
+        
         if let wildcardChild = node.wildcardChild {
-            collectPatterns(from: wildcardChild, patterns: &patterns)
-        }
-
-        if let regexChild = node.regexChild {
-            collectPatterns(from: regexChild.node, patterns: &patterns)
+            collectPatterns(from: wildcardChild, into: &patterns)
         }
     }
 
-    // MARK: - 匹配单个模式
+    // MARK: - 匹配单个模式（使用缓存的排序结果）
     private func matchPattern(_ pattern: RoutePattern, with pathComponents: [String]) -> RouterParameters? {
         guard pattern.components.count == pathComponents.count else {
             return nil
@@ -325,7 +367,7 @@ public actor RouteTrie {
             }
         case .regex(let regex, _):
             let regexPattern = regex.pattern
-            if let (childNode, childPattern) = node.regexChild, childPattern == regexPattern {
+            if let (childNode, childRegex, _) = node.regexChild, childRegex.pattern == regexPattern {
                 shouldDeleteChild = removeNode(components, index: index + 1, node: childNode, pattern: pattern)
                 if shouldDeleteChild {
                     node.regexChild = nil
