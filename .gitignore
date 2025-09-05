@@ -7,6 +7,7 @@ Packages/
 derivedData/
 .idea/
 .vscode/
+.trae/
 Pods/
 Podfile.lock
 build/
