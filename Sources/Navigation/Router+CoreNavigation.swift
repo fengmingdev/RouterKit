@@ -34,7 +34,9 @@ extension Router {
         Task {
             do {
                 // 处理拦截器
+                let interceptorList = await state.getInterceptors()
                 let (finalUrl, finalParameters, presentationStyle) = try await handleInterceptors(
+                    interceptors: interceptorList,
                     url: urlString,
                     parameters: parameters ?? [:]
                 )
@@ -53,7 +55,8 @@ extension Router {
                 )
             } catch {
                 await MainActor.run {
-                    completion(.failure(error))
+                    let routerError = error as? RouterError ?? RouterError.navigationError(error.localizedDescription)
+                    completion(.failure(routerError))
                 }
             }
         }
@@ -61,20 +64,31 @@ extension Router {
     
     /// 处理拦截器链
     /// - Parameters:
+    ///   - interceptors: 拦截器列表
     ///   - url: 原始URL
     ///   - parameters: 原始参数
     /// - Returns: 处理后的URL、参数和展示样式
-    private func handleInterceptors(url: String, parameters: RouterParameters) async throws
+    private func handleInterceptors(interceptors: [RouterInterceptor], url: String, parameters: RouterParameters) async throws
         -> (String, RouterParameters, NavigationPresentationStyle?) {
         var currentUrl = url
         var currentParameters = parameters
         var presentationStyle: NavigationPresentationStyle?
         
         for interceptor in interceptors {
-            let result = try await interceptor.intercept(
-                url: currentUrl,
-                parameters: currentParameters
-            )
+            let result = try await withCheckedThrowingContinuation { continuation in
+                interceptor.intercept(
+                    url: currentUrl,
+                    parameters: currentParameters
+                ) { allow, redirectUrl, errorMsg, newParams, style in
+                    if allow {
+                        continuation.resume(returning: InterceptorResult.continue(redirectUrl, newParams))
+                    } else if let error = errorMsg {
+                        continuation.resume(throwing: RouterError.interceptorRejected(error))
+                    } else {
+                        continuation.resume(throwing: RouterError.interceptorRejected("拦截器拒绝访问"))
+                    }
+                }
+            }
             
             switch result {
             case .continue(let newUrl, let newParameters):
@@ -86,14 +100,7 @@ extension Router {
                 currentParameters = redirectParameters ?? [:]
                 
             case .block(let error):
-                throw error
-                
-            case .modifyPresentation(let style):
-                presentationStyle = style
-                
-            case .complete:
-                // 拦截器已完成处理，直接返回
-                return (currentUrl, currentParameters, presentationStyle)
+                throw RouterError.interceptorRejected(error)
             }
         }
         
@@ -105,9 +112,9 @@ extension Router {
         Task {
             await withCheckedContinuation { continuation in
                 Task {
-                    if let task = currentNavigationTask {
+                    if let task = await state.getCurrentNavigationTask() {
                         task.cancel()
-                        currentNavigationTask = nil
+                        await state.setCurrentNavigationTask(nil)
                     }
                     continuation.resume()
                 }
@@ -134,9 +141,9 @@ extension Router {
                                    animated: Bool,
                                    animationId: String?,
                                    retryCount: Int,
-                                   completion: @escaping RouterCompletion) {
+                                   completion: @escaping RouterCompletion) async {
         
-        let task = Task {
+        let task: Task<Void, Error> = Task {
             do {
                 guard let url = URL(string: urlString) else {
                     throw RouterError.invalidURL(urlString)
@@ -154,16 +161,25 @@ extension Router {
                             finalType = .push
                         case .present:
                             finalType = .present
+                        case .presentWithNavigation:
+                            finalType = .present
                         case .replace:
                             finalType = .replace
+                        case .custom(_):
+                            // 自定义样式保持原有类型
+                            break
                         }
                     }
                     
                     // 处理自定义动画
                     if let animationId = animationId {
-                        if let animation = animations[animationId] {
-                            viewController.transitioningDelegate = self
-                            currentAnimation = animation
+                        Task {
+                            if let animation = await state.getAnimation(animationId) {
+                                await MainActor.run {
+                                    viewController.transitioningDelegate = self
+                                }
+                                await state.setCurrentAnimation(animation)
+                            }
                         }
                     }
                     
@@ -184,6 +200,9 @@ extension Router {
                         case .replace:
                             try replace(from: sourceViewController, to: viewController, animated: animated)
                             
+                        case .pop:
+                            pop(from: sourceViewController, animated: animated)
+                            
                         case .popToRoot:
                             popToRoot(from: sourceViewController, animated: animated)
                             
@@ -199,34 +218,44 @@ extension Router {
                         
                     } catch {
                         // 错误处理和重试机制
-                        if retryCount < maxRetryCount {
-                            DispatchQueue.main.asyncAfter(deadline: .now() + retryDelay) {
-                                self.performNavigation(
-                                    urlString: urlString,
-                                    presentationStyle: presentationStyle,
-                                    parameters: parameters,
-                                    sourceVC: sourceVC,
-                                    type: type,
-                                    animated: animated,
-                                    animationId: animationId,
-                                    retryCount: retryCount + 1,
-                                    completion: completion
-                                )
+                        Task {
+                            let maxRetryCount = await state.getMaxRetryCount()
+                            let retryDelay = await state.getRetryDelay()
+                            
+                            await MainActor.run {
+                                if retryCount < maxRetryCount {
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + retryDelay) {
+                                        Task {
+                                            await self.performNavigation(
+                                                urlString: urlString,
+                                                presentationStyle: presentationStyle,
+                                                parameters: parameters,
+                                                sourceVC: sourceVC,
+                                                type: type,
+                                                animated: animated,
+                                                animationId: animationId,
+                                                retryCount: retryCount + 1,
+                                                completion: completion
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    completion(.failure(RouterError.navigationError(error.localizedDescription)))
+                                }
                             }
-                        } else {
-                            completion(.failure(error))
                         }
                     }
                 }
                 
             } catch {
                 await MainActor.run {
-                    completion(.failure(error))
+                    let routerError = error as? RouterError ?? RouterError.navigationError(error.localizedDescription)
+                    completion(.failure(routerError))
                 }
             }
         }
         
-        currentNavigationTask = task
+        await state.setCurrentNavigationTask(task)
     }
     
     /// 查找匹配的视图控制器

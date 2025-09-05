@@ -6,7 +6,7 @@
 //
 
 import UIKit
-import RouterKit_Swift
+import RouterKit
 
 // 消息视图控制器
 public class MessageViewController: UIViewController, Routable {

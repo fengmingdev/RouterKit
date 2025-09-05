@@ -10,7 +10,7 @@ project 'MyMainProject/MyMainProject.xcodeproj'
 
 # 使用抽象目标共享公共依赖
 abstract_target 'CommonDependencies' do
-  pod 'RouterKit-Swift', :path => '../../RouterKit-Swift.podspec'
+  pod 'RouterKit-Swift', :path => '../../'
 
   target 'MyMainProject' do
     end
@@ -22,6 +22,31 @@ abstract_target 'CommonDependencies' do
   target 'MessageModule' do
     project 'MessageModule/MessageModule.xcodeproj'
   end
+  
+  target 'InterceptorModule' do
+    project 'InterceptorModule/InterceptorModule.xcodeproj'
+  end
+  
+  target 'ErrorHandlingModule' do
+    project 'ErrorHandlingModule/ErrorHandlingModule.xcodeproj'
+  end
+  
+  target 'SettingsModule' do
+    project 'SettingsModule/SettingsModule.xcodeproj'
+  end
+  
+  target 'ParameterPassingModule' do
+    project 'ParameterPassingModule/ParameterPassingModule.xcodeproj'
+  end
+  
+  target 'ProfileModule' do
+    project 'ProfileModule/ProfileModule.xcodeproj'
+  end
+  
+  target 'AnimationModule' do
+    project 'AnimationModule/AnimationModule.xcodeproj'
+  end
+  
 end
 
 post_install do |installer|

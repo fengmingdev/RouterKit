@@ -17,19 +17,29 @@ struct HomeView: View {
             Text("Home View")
             Button("Go to Detail") {
                 // 导航到详情页
-                Router.shared.navigate(to: "/detail")
+                Router.push(to: "/detail")
             }
         }
     }
 }
 
-// 注册路由
-Router.shared.register("/home") { _ in
-    UIHostingController(rootView: HomeView())
+// 创建支持SwiftUI的视图控制器
+class HomeViewController: UIViewController, Routable {
+    func viewController(with parameters: RouterParameters?) -> UIViewController {
+        return UIHostingController(rootView: HomeView())
+    }
 }
 
-Router.shared.register("/detail") { _ in
-    UIHostingController(rootView: DetailView())
+class DetailViewController: UIViewController, Routable {
+    func viewController(with parameters: RouterParameters?) -> UIViewController {
+        return UIHostingController(rootView: DetailView())
+    }
+}
+
+// 注册路由
+Task {
+    try await Router.shared.registerRoute("/home", for: HomeViewController.self)
+    try await Router.shared.registerRoute("/detail", for: DetailViewController.self)
 }
 ```
 
@@ -52,7 +62,7 @@ struct RouterView: View {
         }
         .onAppear {
             // 初始导航
-            Router.shared.navigate(to: "/home")
+            Router.push(to: "/home")
         }
     }
 }
@@ -105,10 +115,17 @@ struct UserView: View {
     }
 }
 
+// 创建支持参数的视图控制器
+class UserViewController: UIViewController, Routable {
+    func viewController(with parameters: RouterParameters?) -> UIViewController {
+        let userId = parameters?.getValue(forKey: "id") as? String ?? "unknown"
+        return UIHostingController(rootView: UserView(userId: userId))
+    }
+}
+
 // 注册路由
-Router.shared.register("/user/:id") { context in
-    guard let userId = context.parameters["id"] else { return nil }
-    return UIHostingController(rootView: UserView(userId: userId))
+Task {
+    try await Router.shared.registerRoute("/user/:id", for: UserViewController.self)
 }
 ```
 

@@ -13,4 +13,5 @@ Pod::Spec.new do |s|
   s.source       = { :git => 'https://github.com/fengmingdev/RouterKit.git', :tag => 'v' + s.version.to_s }
   s.source_files = 'Sources/**/*.swift'
   s.resources    = 'README.md'
+  s.module_name  = 'RouterKit'
 end

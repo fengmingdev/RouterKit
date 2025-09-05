@@ -65,29 +65,21 @@ extension Router {
     /// - Returns: 路由类型、参数和模块名的元组
     internal func findMatchingRoute(for path: String) async -> (Routable.Type, RouterParameters, String)? {
         // 首先检查缓存
-        if let cached = routeCache.getCachedRoute(for: path) {
-            return cached
+        if let cachedResult = await state.matchRoute(URL(string: "http://localhost" + path)!) {
+            return (cachedResult.type, cachedResult.parameters, cachedResult.pattern.moduleName)
         }
         
-        // 遍历所有已注册的模块
-        for (moduleName, moduleType) in modules {
-            do {
-                let patterns = try await loadModuleAndGetPatterns(moduleName)
-                let sortedPatterns = sortPatternsByPriority(patterns)
-                
-                for pattern in sortedPatterns {
-                    if let (routeType, parameters) = await routeTrie.match(path: path, pattern: pattern.pattern) {
-                        let result = (routeType, parameters, moduleName)
-                        
-                        // 缓存结果
-                        routeCache.cacheRoute(path: path, result: result)
-                        
-                        return result
-                    }
-                }
-            } catch {
-                logger.log("Failed to load patterns for module \(moduleName): \(error)", level: .error)
-                continue
+        // 获取所有路由进行匹配
+        let allRoutes = await state.getAllRoutes()
+        
+        for (pattern, routableType) in allRoutes {
+            let url = URL(string: "http://localhost" + path) ?? URL(string: "http://localhost/")!
+            let matchResult = pattern.match(url)
+            if matchResult.isExactMatch {
+                let parameters = matchResult.parameters.compactMapValues { $0 as? String } ?? [:]
+                let result = (routableType, parameters, pattern.moduleName)
+
+                return result
             }
         }
         
@@ -98,25 +90,9 @@ extension Router {
     /// - Parameter moduleName: 模块名称
     /// - Returns: 路由模式数组
     internal func loadModuleAndGetPatterns(_ moduleName: String) async throws -> [RoutePattern] {
-        guard let moduleType = modules[moduleName] else {
-            throw RouterError.moduleNotFound(moduleName)
-        }
-        
-        do {
-            let module = try await moduleType.createModule()
-            return module.routes
-        } catch {
-            // 记录错误但不中断整个匹配过程
-            logger.log("Failed to create module \(moduleName): \(error)", level: .error)
-            
-            // 如果是关键模块，重新抛出错误
-            if criticalModules.contains(moduleName) {
-                throw error
-            }
-            
-            // 对于非关键模块，返回空数组
-            return []
-        }
+        // 从已注册的路由中获取该模块的路由模式
+        let moduleRoutes = await state.getRoutesByModule(moduleName)
+        return moduleRoutes
     }
     
     /// 按优先级排序路由模式

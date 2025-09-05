@@ -15,7 +15,12 @@ import UIKit
 /// 视图控制器需要遵循的协议，用于路由创建实例
 public protocol Routable: AnyObject {
     #if canImport(UIKit)
-    /// 根据参数创建视图控制器
+    /// 根据路由上下文创建视图控制器
+    /// - Parameter context: 路由上下文
+    /// - Returns: 视图控制器实例
+    static func createViewController(context: RouteContext) async throws -> UIViewController
+    
+    /// 根据参数创建视图控制器（兼容性方法）
     /// - Parameter parameters: 传递的参数
     /// - Returns: 视图控制器实例（可选）
     static func viewController(with parameters: RouterParameters?) -> UIViewController?
@@ -26,6 +31,21 @@ public protocol Routable: AnyObject {
     ///   - parameters: 动作参数
     ///   - completion: 完成回调
     static func performAction(_ action: String, parameters: RouterParameters?, completion: @escaping RouterCompletion)
+}
+
+// MARK: - Routable协议默认实现
+extension Routable {
+    #if canImport(UIKit)
+    /// 默认的createViewController实现，使用兼容性方法
+    public static func createViewController(context: RouteContext) async throws -> UIViewController {
+        return try await MainActor.run {
+            guard let viewController = viewController(with: context.parameters) else {
+                throw RouterError.viewControllerNotFound(context.url)
+            }
+            return viewController
+        }
+    }
+    #endif
 }
 
 // MARK: - 路由管理器核心

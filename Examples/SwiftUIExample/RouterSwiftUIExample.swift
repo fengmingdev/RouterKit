@@ -1,12 +1,21 @@
 import SwiftUI
 import RouterKit
 
-// SwiftUI视图注册扩展
- extension Router {
-    func registerSwiftUI<Content: View>(_ pattern: String, @ViewBuilder content: @escaping (RouteContext) -> Content) {
-        register(pattern) { context in
-            UIHostingController(rootView: content(context))
-        }
+// SwiftUI视图控制器包装器
+class SwiftUIViewController<Content: View>: UIViewController, Routable {
+    private let content: (RouterParameters?) -> Content
+    
+    init(@ViewBuilder content: @escaping (RouterParameters?) -> Content) {
+        self.content = content
+        super.init(nibName: nil, bundle: nil)
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    func viewController(with parameters: RouterParameters?) -> UIViewController {
+        return UIHostingController(rootView: content(parameters))
     }
 }
 
@@ -21,15 +30,15 @@ struct ContentView: View {
                     .font(.title)
 
                 Button("Go to Detail") {
-                    Router.shared.navigate(to: "router://detail")
+                    Router.push(to: "/detail")
                 }
 
                 Button("Go to Detail with ID 123") {
-                    Router.shared.navigate(to: "router://detail/123")
+                    Router.push(to: "/detail/123")
                 }
 
                 Button("Go to Settings") {
-                    Router.shared.navigate(to: "router://settings")
+                    Router.push(to: "/settings")
                 }
             }
             .navigationDestination(for: String.self) { path in
@@ -114,19 +123,28 @@ struct RouterSwiftUIExampleApp: App {
     }
 
     private func setupRouter() {
-        let router = Router.shared
+        Task {
+            let router = Router.shared
 
-        // 注册SwiftUI视图
-        router.registerSwiftUI("router://detail") { _ in
-            DetailView()
-        }
+            do {
+                // 注册SwiftUI视图
+                try await router.registerRoute("/detail", for: SwiftUIViewController { _ in
+                    DetailView()
+                }.self)
 
-        router.registerSwiftUI("router://detail/:id") { context in
-            DetailView(itemId: context.parameters["id"])
-        }
+                try await router.registerRoute("/detail/:id", for: SwiftUIViewController { parameters in
+                    let itemId = parameters?.getValue(forKey: "id") as? String
+                    return DetailView(itemId: itemId)
+                }.self)
 
-        router.registerSwiftUI("router://settings") { _ in
-            SettingsView()
+                try await router.registerRoute("/settings", for: SwiftUIViewController { _ in
+                    SettingsView()
+                }.self)
+                
+                print("SwiftUI routes registered successfully")
+            } catch {
+                print("Failed to register SwiftUI routes: \(error)")
+            }
         }
     }
 }

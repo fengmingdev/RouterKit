@@ -70,6 +70,8 @@ extension View {
                     Router.push(to: url, parameters: parameters, animated: animated)
                 case .present:
                     Router.present(to: url, parameters: parameters, animated: animated)
+                case .pop:
+                    Router.pop(animated: animated)
                 case .popToRoot:
                     Router.popToRoot(animated: animated)
                 case .replace:

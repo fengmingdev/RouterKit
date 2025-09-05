@@ -5,7 +5,7 @@
 //  Created by fengming on 2025/8/8.
 //
 
-import RouterKit_Swift
+import RouterKit
 import UIKit
 
 // MARK: 创建自定义导航动画

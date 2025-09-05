@@ -57,7 +57,7 @@ extension Router {
     ///   - animated: 是否动画
     internal func push(from source: UIViewController, to target: UIViewController, animated: Bool) throws {
         guard let navigationController = source.navigationController else {
-            throw RouterError.navigationControllerNotFound
+            throw RouterError.navigationControllerNotFound()
         }
         
         navigationController.pushViewController(target, animated: animated)
@@ -83,7 +83,7 @@ extension Router {
     ///   - animated: 是否动画
     internal func replace(from source: UIViewController, to target: UIViewController, animated: Bool) throws {
         guard let navigationController = source.navigationController else {
-            throw RouterError.navigationControllerNotFound
+            throw RouterError.navigationControllerNotFound()
         }
         
         var viewControllers = navigationController.viewControllers
@@ -138,6 +138,18 @@ extension Router {
         
         navigationController.popToRootViewController(animated: animated)
     }
+    
+    /// Pop导航操作，返回上一级页面
+    /// - Parameters:
+    ///   - source: 源视图控制器
+    ///   - animated: 是否动画
+    internal func pop(from source: UIViewController, animated: Bool) {
+        guard let navigationController = source.navigationController else {
+            return
+        }
+        
+        navigationController.popViewController(animated: animated)
+    }
 }
 
 // MARK: - 转场动画代理
@@ -152,7 +164,8 @@ extension Router: UIViewControllerTransitioningDelegate {
     public func animationController(forPresented presented: UIViewController,
                                     presenting: UIViewController,
                                     source: UIViewController) -> UIViewControllerAnimatedTransitioning? {
-        return currentAnimation?.presentAnimationController
+        guard let animation = currentAnimation else { return nil }
+        return AnimationTransitionWrapper(animation: animation, isPresentation: true)
     }
     
     /// Dismiss动画控制器
@@ -161,7 +174,8 @@ extension Router: UIViewControllerTransitioningDelegate {
     public func animationController(
         forDismissed dismissed: UIViewController
     ) -> UIViewControllerAnimatedTransitioning? {
-        return currentAnimation?.dismissAnimationController
+        guard let animation = currentAnimation else { return nil }
+        return AnimationTransitionWrapper(animation: animation, isPresentation: false)
     }
 }
 

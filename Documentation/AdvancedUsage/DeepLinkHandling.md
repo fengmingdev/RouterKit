@@ -20,7 +20,15 @@ RouterKit支持处理外部深度链接，允许用户从应用外部通过URL�
 ```swift
 func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
     // 处理深度链接
-    return Router.shared.navigate(to: url)
+    Router.shared.navigate(to: url.absoluteString) { result in
+        switch result {
+        case .success:
+            print("深度链接导航成功")
+        case .failure(let error):
+            print("深度链接导航失败: \(error)")
+        }
+    }
+    return true
 }
 ```
 
@@ -30,7 +38,14 @@ func application(_ app: UIApplication, open url: URL, options: [UIApplication.Op
 func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
     guard let url = URLContexts.first?.url else { return }
     // 处理深度链接
-    Router.shared.navigate(to: url)
+    Router.shared.navigate(to: url.absoluteString) { result in
+        switch result {
+        case .success:
+            print("深度链接导航成功")
+        case .failure(let error):
+            print("深度链接导航失败: \(error)")
+        }
+    }
 }
 ```
 
@@ -40,20 +55,33 @@ func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>)
 
 ```swift
 class DeepLinkInterceptor: RouterInterceptor {
-    func shouldNavigate(to path: String, context: RouteContext) -> Bool {
-        // 验证深度链接
-        if path.hasPrefix("/deep-link") {
-            // 检查签名或权限
-            if let token = context.queryParameters["token"], validateToken(token) {
-                return true
-            } else {
-                // 验证失败，导航到错误页面
-                Router.shared.navigate(to: "/error")
-                return false
-            }
-        }
-        return true
+    let identifier = "deeplink"
+    let priority = 90
+    
+    func shouldIntercept(for url: String, parameters: RouterParameters?) async -> Bool {
+        return url.hasPrefix("/deep-link")
     }
+    
+    func intercept(for url: String, parameters: RouterParameters?, from sourceVC: UIViewController?) async -> InterceptorResult {
+        // 验证深度链接
+        if let token = parameters?.getValue(forKey: "token") as? String,
+           validateToken(token) {
+            return .continue
+        } else {
+            // 验证失败，重定向到错误页面
+            return .redirect("/error")
+        }
+    }
+    
+    private func validateToken(_ token: String) -> Bool {
+        // 实现token验证逻辑
+        return !token.isEmpty
+    }
+}
+
+// 注册拦截器
+Task {
+    await Router.shared.addInterceptor(DeepLinkInterceptor())
 }
 ```
 
@@ -86,7 +114,15 @@ RouterKit也支持Apple的通用链接。要使用通用链接，需要：
 func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
     if userActivity.activityType == NSUserActivityTypeBrowsingWeb,
        let url = userActivity.webpageURL {
-        return Router.shared.navigate(to: url)
+        Router.shared.navigate(to: url.absoluteString) { result in
+            switch result {
+            case .success:
+                print("通用链接导航成功")
+            case .failure(let error):
+                print("通用链接导航失败: \(error)")
+            }
+        }
+        return true
     }
     return false
 }

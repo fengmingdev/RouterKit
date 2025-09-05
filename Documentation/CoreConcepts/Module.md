@@ -4,21 +4,27 @@
 
 ## 创建模块
 
-要创建模块，需要实现`RouterModuleProtocol`协议。
+要创建模块，需要实现`ModuleProtocol`协议。
 
 ```swift
-class UserModule: RouterModuleProtocol {
-    var name: String { return "user" }
+class UserModule: ModuleProtocol {
+    let name = "User"
+    let version = "1.0.0"
     
-    func registerRoutes(with router: Router) {
+    func initialize() async throws {
+        // 模块初始化逻辑
+        print("用户模块初始化")
+    }
+    
+    func registerRoutes() async throws {
         // 注册模块内的路由
-        router.register("/user/profile") { _ in
-            return ProfileViewController()
-        }
-        
-        router.register("/user/settings") { _ in
-            return SettingsViewController()
-        }
+        try await Router.shared.registerRoute("/user/profile", for: ProfileViewController.self)
+        try await Router.shared.registerRoute("/user/settings", for: SettingsViewController.self)
+    }
+    
+    func cleanup() async {
+        // 清理资源
+        print("用户模块清理")
     }
 }
 ```
@@ -31,31 +37,41 @@ class UserModule: RouterModuleProtocol {
 // 创建模块实例
 let userModule = UserModule()
 
-// 注册模块
-router.registerModule(userModule)
+// 异步注册模块
+Task {
+    await router.registerModule(userModule)
+}
 ```
 
-## 模块依赖
+## 模块管理
 
-模块可以依赖其他模块。
+可以检查模块状态和获取模块实例。
 
 ```swift
-class OrderModule: RouterModuleProtocol {
-    var name: String { return "order" }
-    var dependencies: [String] { return ["user"] }
+// 检查模块是否已加载
+Task {
+    let isLoaded = await router.isModuleLoaded("User")
+    print("用户模块已加载: \(isLoaded)")
     
-    func registerRoutes(with router: Router) {
-        // 注册订单相关路由
-        router.register("/order/list") { _ in
-            return OrderListViewController()
-        }
+    // 获取模块实例
+    if let userModule = await router.getModule("User") {
+        print("获取到用户模块: \(userModule.name)")
+    }
+    
+    // 通过类型获取模块
+    if let userModule = await router.getModule(UserModule.self) {
+        print("通过类型获取用户模块: \(userModule.name)")
     }
 }
 ```
 
-## 模块初始化顺序
+## 模块生命周期
 
-RouterKit会根据模块依赖关系自动确定初始化顺序。依赖其他模块的模块会在被依赖模块之后初始化。
+模块具有完整的生命周期管理：
+
+1. `initialize()`: 模块初始化，在注册时调用
+2. `registerRoutes()`: 注册路由，在初始化后调用
+3. `cleanup()`: 清理资源，在注销时调用
 
 ## 模块通信
 
@@ -68,10 +84,15 @@ RouterKit会根据模块依赖关系自动确定初始化顺序。依赖其他�
 
 ```swift
 // 模块间通过路由导航通信
-router.navigate(to: "/user/profile")
+Router.push(to: "/user/profile")
 
 // 模块间通过共享数据模型通信
 UserManager.shared.currentUser = newUser
+
+// 模块间通过参数传递数据
+let parameters = RouterParameters()
+parameters.setValue(userId, forKey: "userId")
+Router.push(to: "/order/detail", parameters: parameters)
 ```
 
 ## 动态加载模块
@@ -79,12 +100,15 @@ UserManager.shared.currentUser = newUser
 RouterKit支持动态加载模块，您可以在运行时根据需要加载或卸载模块。
 
 ```swift
-// 动态加载模块
-if let moduleClass = NSClassFromString("MyApp.AdminModule") as? RouterModuleProtocol.Type {
-    let module = moduleClass.init()
-    router.registerModule(module)
+// 动态创建模块
+if let module = router.createModule(named: "AdminModule") {
+    Task {
+        await router.registerModule(module)
+    }
 }
 
 // 卸载模块
-router.unregisterModule("admin")
+Task {
+    await router.unregisterModule("Admin")
+}
 ```

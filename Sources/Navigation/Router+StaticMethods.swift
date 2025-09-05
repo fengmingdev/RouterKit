@@ -76,6 +76,23 @@ extension Router {
         )
     }
 
+    /// 静态pop方法，返回上一级页面
+    /// - Parameters:
+    ///   - animated: 是否动画
+    ///   - completion: 完成回调
+    public static func pop(animated: Bool = true,
+                           completion: @escaping RouterCompletion = { _ in }) {
+        shared.navigate(
+            to: "",
+            parameters: nil,
+            from: nil,
+            type: .pop,
+            animated: animated,
+            animationId: nil,
+            completion: completion
+        )
+    }
+    
     /// 静态popToRoot方法，返回根页面
     /// - Parameters:
     ///   - animated: 是否动画

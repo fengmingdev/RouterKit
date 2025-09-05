@@ -6,9 +6,27 @@
 //
 
 import UIKit
-import RouterKit_Swift
+import RouterKit
 
-class ViewController: UIViewController {
+class ViewController: UIViewController, Routable {
+    
+    // MARK: - Routable Protocol Implementation
+    public static func viewController(with parameters: RouterParameters?) -> UIViewController? {
+        return ViewController()
+    }
+    
+    public static func performAction(_ action: String, parameters: RouterParameters?, completion: @escaping RouterCompletion) {
+        switch action {
+        case "navigateToLogin":
+            Router.push(to: "/LoginModule/login")
+            completion(.success("已跳转到登录页面"))
+        case "navigateToMessage":
+            Router.push(to: "/MessageModule/message")
+            completion(.success("已跳转到消息页面"))
+        default:
+            completion(.failure(RouterError.actionNotFound(action)))
+        }
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()

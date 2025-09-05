@@ -5,7 +5,7 @@
 //  Created by fengming on 2025/8/8.
 //
 // MARK: 创建拦截器
-import RouterKit_Swift
+import RouterKit
 
 /// 登录拦截器 - 检查用户是否已登录
 ///// 验证用户登录状态的拦截器（高优先级）

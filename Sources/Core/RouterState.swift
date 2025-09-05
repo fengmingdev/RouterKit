@@ -91,13 +91,21 @@ public actor RouterState {
     var enableParameterSanitization: Bool = true
 
     /// 权限验证器实例
-    /// 用于验证路由访问权限
+    /// 权限验证器
     var permissionValidator: RoutePermissionValidator = DefaultPermissionValidator()
+    
+    /// 关键模块列表
+    private var criticalModules: Set<String> = []
 
     /// 当前导航任务
     /// 用于标识正在进行的导航任务，避免并发冲突
     #if swift(>=5.5) && canImport(_Concurrency)
     var currentNavigationTask: Task<Void, Error>?
+    #endif
+    
+    /// 当前动画实例
+    #if canImport(UIKit)
+    var currentAnimation: NavigationAnimatable?
     #endif
 
     // MARK: - 模块管理
@@ -559,11 +567,32 @@ public actor RouterState {
     func getCurrentNavigationTask() -> Task<Void, Error>? {
         return currentNavigationTask
     }
-
-    /// 设置当前导航任务
+    
     @available(iOS 13.0, macOS 10.15, *)
     func setCurrentNavigationTask(_ task: Task<Void, Error>?) {
         currentNavigationTask = task
     }
     #endif
+    
+    #if canImport(UIKit)
+    /// 设置当前动画
+    func setCurrentAnimation(_ animation: NavigationAnimatable?) {
+        currentAnimation = animation
+    }
+    
+    /// 获取当前动画
+    func getCurrentAnimation() -> NavigationAnimatable? {
+        return currentAnimation
+    }
+    #endif
+    
+    /// 获取所有模块
+    func getModules() -> [String: Weak<AnyObject>] {
+        return modules
+    }
+    
+    /// 获取关键模块列表
+    func getCriticalModules() -> Set<String> {
+        return criticalModules
+    }
 }

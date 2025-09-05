@@ -8,14 +8,18 @@
 
 ```swift
 class AuthInterceptor: RouterInterceptor {
-    func shouldNavigate(to path: String, context: RouteContext) -> Bool {
+    let identifier = "auth"
+    let priority = 100
+    
+    func shouldIntercept(for url: String, parameters: RouterParameters?) async -> Bool {
         // 检查用户是否已登录
-        if path.hasPrefix("/profile") && !AuthManager.shared.isLoggedIn {
-            // 未登录，导航到登录页面
-            Router.shared.navigate(to: "/login")
-            return false
-        }
-        return true
+        return url.hasPrefix("/profile") && !AuthManager.shared.isLoggedIn
+    }
+    
+    func intercept(for url: String, parameters: RouterParameters?, from sourceVC: UIViewController?) async -> InterceptorResult {
+        // 显示登录界面
+        let success = await LoginViewController.present()
+        return success ? .continue : .stop
     }
 }
 ```
@@ -28,43 +32,77 @@ class AuthInterceptor: RouterInterceptor {
 // 创建拦截器实例
 let authInterceptor = AuthInterceptor()
 
-// 注册拦截器
-router.addInterceptor(authInterceptor)
+// 异步注册拦截器
+Task {
+    await router.addInterceptor(authInterceptor)
+}
 ```
 
 ## 拦截器优先级
 
-可以为拦截器设置优先级，优先级高的拦截器会先执行。
+拦截器的优先级通过协议属性设置，优先级高的拦截器会先执行。
 
 ```swift
-// 设置拦截器优先级
-router.addInterceptor(authInterceptor, priority: 100)
-router.addInterceptor(logInterceptor, priority: 50)
+class HighPriorityInterceptor: RouterInterceptor {
+    let identifier = "high_priority"
+    let priority = 100  // 高优先级
+    
+    // 实现协议方法...
+}
+
+class LowPriorityInterceptor: RouterInterceptor {
+    let identifier = "low_priority"
+    let priority = 50   // 低优先级
+    
+    // 实现协议方法...
+}
 ```
 
-## 拦截器类型
+## 拦截器方法
 
-RouterKit支持以下类型的拦截器：
+RouterKit拦截器支持以下方法：
 
-- `shouldNavigate`: 在导航开始前调用，决定是否允许导航
-- `willNavigate`: 在导航即将开始时调用
-- `didNavigate`: 在导航完成后调用
-- `willDismiss`: 在视图控制器即将消失时调用
-- `didDismiss`: 在视图控制器消失后调用
-
-## 全局拦截器和局部拦截器
-
-- 全局拦截器: 对所有路由生效
-- 局部拦截器: 只对特定路由生效
+- `shouldIntercept`: 判断是否需要拦截当前导航
+- `intercept`: 执行拦截逻辑，返回是否继续导航
 
 ```swift
-// 全局拦截器
-router.addInterceptor(globalInterceptor)
+class LogInterceptor: RouterInterceptor {
+    let identifier = "log"
+    let priority = 10
+    
+    func shouldIntercept(for url: String, parameters: RouterParameters?) async -> Bool {
+        return true  // 总是记录日志
+    }
+    
+    func intercept(for url: String, parameters: RouterParameters?, from sourceVC: UIViewController?) async -> InterceptorResult {
+        print("导航到: \(url)")
+        return .continue  // 继续导航
+    }
+}
+```
 
-// 局部拦截器
-router.register("/profile") { _ in
-    return ProfileViewController()
-}.addInterceptor(profileInterceptor)
+## 拦截器结果
+
+拦截器可以返回不同的结果来控制导航流程：
+
+```swift
+enum InterceptorResult {
+    case continue    // 继续导航
+    case stop        // 停止导航
+    case redirect(String)  // 重定向到其他路径
+}
+
+class RedirectInterceptor: RouterInterceptor {
+    let identifier = "redirect"
+    let priority = 80
+    
+    func intercept(for url: String, parameters: RouterParameters?, from sourceVC: UIViewController?) async -> InterceptorResult {
+        if url == "/old-path" {
+            return .redirect("/new-path")
+        }
+        return .continue
+    }
+}
 ```
 
 ## 移除拦截器
@@ -72,6 +110,8 @@ router.register("/profile") { _ in
 使用`removeInterceptor`方法移除拦截器。
 
 ```swift
-// 移除拦截器
-router.removeInterceptor(authInterceptor)
+// 异步移除拦截器
+Task {
+    await router.removeInterceptor(authInterceptor)
+}
 ```

@@ -16,67 +16,84 @@ let customRouter = Router()
 
 ## 注册路由
 
-使用`register`方法注册路由。
+使用`registerRoute`方法注册路由，需要实现`Routable`协议。
 
 ```swift
-// 基本注册
-router.register("/home") { context in
-    return HomeViewController()
+// 异步注册路由
+Task {
+    try await router.registerRoute("/home", for: HomeViewController.self)
+    try await router.registerRoute("/user/:id", for: UserViewController.self)
 }
 
-// 带参数的路由
-router.register("/user/:id") { context in
-    guard let userId = context.parameters["id"] else { return nil }
-    return UserViewController(userId: userId)
-}
+// 链式调用注册
+router.register("/home", for: HomeViewController.self)
+router.register("/user/:id", for: UserViewController.self)
 
-// 带谓词的路由
-router.register("/profile", predicate: { context in
-    return AuthManager.shared.isLoggedIn
-}) { context in
-    return ProfileViewController()
-}
+// 带权限的路由
+let permission = RoutePermission(requiredRoles: ["user"])
+try await router.registerRoute("/profile", for: ProfileViewController.self, permission: permission)
 ```
 
 ## 导航
 
-使用`navigate`方法执行导航。
+使用`navigate`方法执行导航，支持多种导航类型。
 
 ```swift
 // 基本导航
-router.navigate(to: "/home")
+router.navigate(to: "/home") { result in
+    switch result {
+    case .success:
+        print("导航成功")
+    case .failure(let error):
+        print("导航失败: \(error)")
+    }
+}
 
 // 带参数的导航
-router.navigate(to: "/user/123")
+let parameters = RouterParameters()
+parameters.setValue("123", forKey: "id")
+router.navigate(to: "/user/:id", parameters: parameters, type: .push) { _ in }
 
-// 带选项的导航
-router.navigate(to: "/settings", options: [.animated(true), .modal(true)])
+// 使用静态方法导航
+Router.push(to: "/home")
+Router.present(to: "/settings", animated: true)
+Router.pop(animated: true)
 ```
 
-## 反向路由生成
+## 路由匹配
 
-使用`generateURL`方法根据路由名称和参数生成URL。
+使用`matchRoute`方法匹配路由并获取参数。
 
 ```swift
-// 生成URL
-if let url = router.generateURL(for: "user", parameters: ["id": "123"]) {
-    print(url) // 输出: /user/123
+// 匹配路由
+Task {
+    if let match = await router.matchRoute(URL(string: "/user/123")!) {
+        print("匹配的模式: \(match.pattern)")
+        print("参数: \(match.parameters)")
+        print("类型: \(match.type)")
+    }
 }
 ```
 
-## 路由组
+## 模块管理
 
-使用`group`方法创建路由组，方便管理相关路由。
+使用模块系统组织相关路由。
 
 ```swift
-// 创建路由组
-router.group("/api") { api in
-    api.register("/users") { _ in
-        return UsersViewController()
+// 创建模块
+class APIModule: ModuleProtocol {
+    let name = "API"
+    let version = "1.0.0"
+    
+    func registerRoutes() async throws {
+        try await Router.shared.registerRoute("/api/users", for: UsersViewController.self)
+        try await Router.shared.registerRoute("/api/posts", for: PostsViewController.self)
     }
-    api.register("/posts") { _ in
-        return PostsViewController()
-    }
+}
+
+// 注册模块
+Task {
+    await router.registerModule(APIModule())
 }
 ```
 

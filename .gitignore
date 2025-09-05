@@ -9,3 +9,6 @@ derivedData/
 .vscode/
 Pods/
 Podfile.lock
+build/
+*/build/
+DerivedData/

@@ -129,7 +129,14 @@ public class RouteRegistrationBuilder {
     }
 
     /// 完成注册
-    public func register() async throws {
+    public func register() {
+        Task {
+            try await router.registerRoute(pattern, for: routableType, permission: permission, priority: priority)
+        }
+    }
+    
+    /// 完成注册（异步版本）
+    public func registerAsync() async throws {
         try await router.registerRoute(pattern, for: routableType, permission: permission, priority: priority)
     }
 }
@@ -147,12 +154,12 @@ extension Router {
     }
 
     /// 快速打开URL
-    @MainActor public func open(_ url: URL, from sourceVC: UIViewController? = nil, animated: Bool = true) {
-        let source = sourceVC ?? topMostViewController()
-        guard let validSource = source else {
-            RouterLogger.shared.log("无法获取源视图控制器进行导航", level: .error)
+    @MainActor public func open(_ url: URL, from sourceVC: UIViewController? = nil, animated: Bool = true) async {
+        guard let validSource = sourceVC ?? topMostViewController() else {
+            await RouterLogger.shared.log("无法获取源视图控制器进行导航", level: .error)
             return
         }
+        
         navigate(to: url.absoluteString)
             .from(validSource)
             .animated(animated)
@@ -161,7 +168,8 @@ extension Router {
 
     /// 获取当前最顶层的视图控制器
     public func topMostViewController() -> UIViewController? {
-        guard let window = UIApplication.shared.windows.first(where: { $0.isKeyWindow }) else {
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let window = windowScene.windows.first(where: { $0.isKeyWindow }) else {
             return nil
         }
 

@@ -6,58 +6,98 @@ class RouterKitTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
-        router = Router()
+        router = Router.shared
     }
 
     override func tearDown() {
+        // 清理路由器状态
+        Task {
+            await router.clearAllRoutes()
+        }
         router = nil
         super.tearDown()
     }
 
     // 测试基本路由注册和匹配
-    func testBasicRouteRegistration() {
-        // 注册路由
-        router.register("router://home") { _ in
-            return UIViewController()
+    func testBasicRouteRegistration() async {
+        // 创建测试视图控制器
+        class TestViewController: UIViewController, Routable {
+            func viewController(with parameters: RouterParameters?) -> UIViewController {
+                return TestViewController()
+            }
         }
+        
+        do {
+            // 注册路由
+            try await router.registerRoute("/home", for: TestViewController.self)
 
-        // 测试匹配
-        let url = URL(string: "router://home")!
-        XCTAssertTrue(router.canNavigate(to: url))
+            // 测试匹配
+            let url = URL(string: "router://home")!
+            let canNavigate = await router.canNavigate(to: url)
+            XCTAssertTrue(canNavigate)
 
-        // 测试不匹配的路由
-        let invalidUrl = URL(string: "router://invalid")!
-        XCTAssertFalse(router.canNavigate(to: invalidUrl))
+            // 测试不匹配的路由
+            let invalidUrl = URL(string: "router://invalid")!
+            let cannotNavigate = await router.canNavigate(to: invalidUrl)
+            XCTAssertFalse(cannotNavigate)
+        } catch {
+            XCTFail("Route registration failed: \(error)")
+        }
     }
 
     // 测试带参数的路由
-    func testRouteWithParameters() {
-        // 注册带参数的路由
-        router.register("router://user/:id") { _ in
-            return UIViewController()
+    func testRouteWithParameters() async {
+        // 创建测试视图控制器
+        class UserViewController: UIViewController, Routable {
+            func viewController(with parameters: RouterParameters?) -> UIViewController {
+                return UserViewController()
+            }
         }
+        
+        do {
+            // 注册带参数的路由
+            try await router.registerRoute("/user/:id", for: UserViewController.self)
 
-        // 测试匹配
-        let url = URL(string: "router://user/123")!
-        XCTAssertTrue(router.canNavigate(to: url))
+            // 测试匹配
+            let url = URL(string: "router://user/123")!
+            let canNavigate = await router.canNavigate(to: url)
+            XCTAssertTrue(canNavigate)
 
-        // 提取参数
-        let context = router.createContext(for: url)
-        XCTAssertEqual(context.parameters["id"], "123")
+            // 测试参数匹配
+            let matchResult = await router.matchRoute(url: url)
+            XCTAssertNotNil(matchResult)
+            let userId = matchResult?.parameters.getValue(forKey: "id") as? String
+            XCTAssertEqual(userId, "123")
+        } catch {
+            XCTFail("Route registration failed: \(error)")
+        }
     }
 
     // 测试查询参数
-    func testQueryParameters() {
-        router.register("router://search") { _ in
-            return UIViewController()
+    func testQueryParameters() async {
+        // 创建测试视图控制器
+        class SearchViewController: UIViewController, Routable {
+            func viewController(with parameters: RouterParameters?) -> UIViewController {
+                return SearchViewController()
+            }
         }
+        
+        do {
+            try await router.registerRoute("/search", for: SearchViewController.self)
 
-        let url = URL(string: "router://search?q=test&page=1")!
-        XCTAssertTrue(router.canNavigate(to: url))
+            let url = URL(string: "router://search?q=test&page=1")!
+            let canNavigate = await router.canNavigate(to: url)
+            XCTAssertTrue(canNavigate)
 
-        let context = router.createContext(for: url)
-        XCTAssertEqual(context.parameters["q"], "test")
-        XCTAssertEqual(context.parameters["page"], "1")
+            let matchResult = await router.matchRoute(url: url)
+            XCTAssertNotNil(matchResult)
+            let query = matchResult?.parameters.getValue(forKey: "q") as? String
+            let page = matchResult?.parameters.getValue(forKey: "page") as? String
+            XCTAssertEqual(query, "test")
+            XCTAssertEqual(page, "1")
+        } catch {
+            XCTFail("Route registration failed: \(error)")
+        }
     }
 
     // 测试路由优先级
@@ -80,7 +120,7 @@ class RouterKitTests: XCTestCase {
     }
 
     // 测试拦截器
-    func testInterceptor() {
+    func testInterceptor() async {
         let expectation = self.expectation(description: "Interceptor should be called")
 
         // 创建测试拦截器
@@ -88,32 +128,43 @@ class RouterKitTests: XCTestCase {
             var priority: Int = 0
             var wasCalled = false
 
-            func shouldNavigate(to url: URL, context: RouteContext) -> Bool {
+            func shouldIntercept(url: URL, parameters: RouterParameters?) async -> Bool {
                 wasCalled = true
-                return true
+                return false // 不拦截
+            }
+            
+            func intercept(url: URL, parameters: RouterParameters?) async -> InterceptorResult {
+                return .continue
+            }
+        }
+
+        // 创建测试视图控制器
+        class TestViewController: UIViewController, Routable {
+            func viewController(with parameters: RouterParameters?) -> UIViewController {
+                expectation.fulfill()
+                return TestViewController()
             }
         }
 
         let interceptor = TestInterceptor()
-        router.addInterceptor(interceptor)
+        
+        do {
+            try await router.addInterceptor(interceptor)
+            try await router.registerRoute("/test", for: TestViewController.self)
 
-        // 注册路由
-        router.register("router://test") { _ in
-            expectation.fulfill()
-            return UIViewController()
+            // 触发导航
+            Router.push(to: "/test") { _ in }
+
+            // 等待期望完成
+            await fulfillment(of: [expectation], timeout: 1)
+            XCTAssertTrue(interceptor.wasCalled)
+        } catch {
+            XCTFail("Setup failed: \(error)")
         }
-
-        // 触发导航
-        let url = URL(string: "router://test")!
-        router.navigate(to: url)
-
-        // 等待期望完成
-        waitForExpectations(timeout: 1, handler: nil)
-        XCTAssertTrue(interceptor.wasCalled)
     }
 
     // 测试自定义路由匹配器
-    func testCustomRouteMatcher() {
+    func testCustomRouteMatcher() async {
         // 创建自定义匹配器
         class TestMatcher: CustomRouteMatcher {
             func matches(_ url: URL) -> Bool {
@@ -125,18 +176,30 @@ class RouterKitTests: XCTestCase {
             }
         }
 
-        // 注册自定义匹配器
-        router.register(matcher: TestMatcher()) { context in
-            XCTAssertEqual(context.parameters["custom"], "true")
-            return UIViewController()
+        // 创建测试视图控制器
+        class CustomViewController: UIViewController, Routable {
+            func viewController(with parameters: RouterParameters?) -> UIViewController {
+                let customValue = parameters?.getValue(forKey: "custom") as? String
+                XCTAssertEqual(customValue, "true")
+                return CustomViewController()
+            }
         }
 
-        // 测试匹配
-        let url = URL(string: "router://custom/path")!
-        XCTAssertTrue(router.canNavigate(to: url))
+        do {
+            // 注册自定义匹配器
+            try await router.registerRoute(matcher: TestMatcher(), for: CustomViewController.self)
 
-        // 测试不匹配
-        let invalidUrl = URL(string: "router://normal/path")!
-        XCTAssertFalse(router.canNavigate(to: invalidUrl))
+            // 测试匹配
+            let url = URL(string: "router://custom/path")!
+            let canNavigate = await router.canNavigate(to: url)
+            XCTAssertTrue(canNavigate)
+
+            // 测试不匹配
+            let invalidUrl = URL(string: "router://normal/path")!
+            let cannotNavigate = await router.canNavigate(to: invalidUrl)
+            XCTAssertFalse(cannotNavigate)
+        } catch {
+            XCTFail("Custom matcher registration failed: \(error)")
+        }
     }
 }

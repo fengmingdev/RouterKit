@@ -43,25 +43,40 @@ let router = Router.shared
 ### 注册路由
 
 ```swift
-// 注册路由
-router.register("/home") { context in
-    return HomeViewController()
+// 注册路由（使用Routable协议）
+Task {
+    try await router.registerRoute("/home", for: HomeViewController.self)
+    try await router.registerRoute("/user/:id", for: UserViewController.self)
 }
 
-router.register("/user/:id") { context in
-    guard let userId = context.parameters["id"] else { return nil }
-    return UserViewController(userId: userId)
-}
+// 或使用链式调用
+router.register("/home", for: HomeViewController.self)
+router.register("/user/:id", for: UserViewController.self)
 ```
 
 ### 执行导航
 
 ```swift
 // 导航到首页
-router.navigate(to: "/home")
+router.navigate(to: "/home") { result in
+    switch result {
+    case .success:
+        print("导航成功")
+    case .failure(let error):
+        print("导航失败: \(error)")
+    }
+}
 
-// 导航到用户页面
-router.navigate(to: "/user/123")
+// 导航到用户页面（带参数）
+let parameters = RouterParameters()
+parameters.setValue("123", forKey: "id")
+router.navigate(to: "/user/:id", parameters: parameters) { result in
+    // 处理导航结果
+}
+
+// 使用静态方法导航
+Router.push(to: "/home")
+Router.present(to: "/user/123")
 ```
 
 ## 下一步

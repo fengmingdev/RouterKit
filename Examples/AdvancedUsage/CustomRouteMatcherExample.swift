@@ -43,28 +43,8 @@ class RegexRouteMatcher: CustomRouteMatcher {
     }
 }
 
-// 使用示例
-func setupCustomRouteMatcher() {
-    let router = Router()
-
-    // 创建并注册自定义匹配器
-    let regexMatcher = RegexRouteMatcher(pattern: "/user/(\\d+)/profile")
-    router.register(matcher: regexMatcher) { context in
-        let userId = context.parameters["param1"]
-        print("Opening profile for user: \(userId ?? "unknown")")
-        return UserProfileViewController(userId: userId)
-    }
-
-    // 测试匹配
-    let url1 = URL(string: "router://app/user/123/profile")!
-    let url2 = URL(string: "router://app/user/abc/profile")!
-
-    print("URL1 matches: \(router.canNavigate(to: url1))") // true
-    print("URL2 matches: \(router.canNavigate(to: url2))") // false
-}
-
-// 示例视图控制器
-class UserProfileViewController: UIViewController {
+// 创建支持自定义匹配器的视图控制器
+class UserProfileViewController: UIViewController, Routable {
     let userId: String?
 
     init(userId: String?) {
@@ -74,5 +54,43 @@ class UserProfileViewController: UIViewController {
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+    
+    func viewController(with parameters: RouterParameters?) -> UIViewController {
+        let userId = parameters?.getValue(forKey: "param1") as? String
+        return UserProfileViewController(userId: userId)
+    }
+}
+
+// 使用示例
+func setupCustomRouteMatcher() async {
+    let router = Router.shared
+
+    // 创建并注册自定义匹配器
+    let regexMatcher = RegexRouteMatcher(pattern: "/user/(\\d+)/profile")
+    
+    // 使用新的API注册路由
+    do {
+        try await router.registerRoute(matcher: regexMatcher, for: UserProfileViewController.self)
+        print("Custom route matcher registered successfully")
+    } catch {
+        print("Failed to register custom route matcher: \(error)")
+    }
+
+    // 测试匹配和导航
+    let url1 = URL(string: "router://app/user/123/profile")!
+    let url2 = URL(string: "router://app/user/abc/profile")!
+
+    print("URL1 matches: \(await router.canNavigate(to: url1))") // true
+    print("URL2 matches: \(await router.canNavigate(to: url2))") // false
+    
+    // 执行导航
+    Router.push(to: "/user/123/profile") { result in
+        switch result {
+        case .success:
+            print("Navigation successful")
+        case .failure(let error):
+            print("Navigation failed: \(error)")
+        }
     }
 }

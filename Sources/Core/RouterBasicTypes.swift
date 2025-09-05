@@ -13,12 +13,21 @@ public typealias RouterParameters = [String: Any]
 /// 路由完成回调，返回结果或错误
 public typealias RouterCompletion = (Result<Any?, RouterError>) -> Void
 
+// MARK: - 拦截器结果枚举
+/// 拦截器处理结果
+public enum InterceptorResult {
+    case `continue`(String?, RouterParameters?)  // 继续执行，可选择修改URL和参数
+    case redirect(String, RouterParameters?)   // 重定向到新URL
+    case block(String)                         // 阻止导航，提供原因
+}
+
 // MARK: - 导航类型枚举
 /// 定义页面跳转的方式
 public enum NavigationType {
     case push              // 导航控制器压栈
     case present           // 模态展示
     case replace           // 替换当前页面
+    case pop               // 返回上一级页面
     case popToRoot         // 返回根页面
     case popTo             // 返回指定页面
 }
@@ -45,6 +54,7 @@ public enum RouterError: Error, LocalizedError, Equatable {
     case moduleDependencyError(String, debugInfo: String? = nil)    // 模块依赖错误
     case unsupportedAction(String, debugInfo: String? = nil)        // 不支持的操作
     case navigationError(String, debugInfo: String? = nil)          // 导航错误
+    case navigationControllerNotFound(debugInfo: String? = nil)     // 导航控制器未找到
     case interceptorRejected(String, debugInfo: String? = nil)      // 路由被拦截
     case configError(String, debugInfo: String? = nil)              // 配置文件错误
 
@@ -75,6 +85,7 @@ public enum RouterError: Error, LocalizedError, Equatable {
         case .moduleDependencyError(let msg, _): return "模块依赖错误: \(msg)"
         case .unsupportedAction(let action, _): return "不支持的操作: \(action)"
         case .navigationError(let msg, _): return "导航错误: \(msg)"
+        case .navigationControllerNotFound: return "导航控制器未找到"
         case .interceptorRejected(let reason, _): return "路由被拦截: \(reason)"
         case .configError(let msg, _): return "配置错误: \(msg)"
         case .patternSyntaxError(let pattern, _): return "路由模式语法错误: \(pattern)"
@@ -113,6 +124,8 @@ public enum RouterError: Error, LocalizedError, Equatable {
             return "请检查模块依赖是否满足，或尝试重新加载模块"
         case .navigationError:
             return "请检查导航上下文是否正确，或尝试使用其他导航方式"
+        case .navigationControllerNotFound:
+            return "请确保当前视图控制器在导航控制器中，或使用present方式导航"
         case .interceptorRejected:
             return "请检查拦截器逻辑，确认是否需要满足特定条件"
         case .permissionDenied:
@@ -143,6 +156,8 @@ public enum RouterError: Error, LocalizedError, Equatable {
         switch self {
         case .navigationError, .moduleLoadFailed, .interceptorRejected:
             return true
+        case .navigationControllerNotFound:
+            return false
         case .networkError, .timeoutError, .maxRetriesExceeded:
             return true
         case .concurrencyError:
@@ -174,6 +189,7 @@ public enum RouterError: Error, LocalizedError, Equatable {
         case .moduleDependencyError(let msg, _): return "模块依赖错误: \(msg)"
         case .unsupportedAction(let action, _): return "不支持的操作: \(action)"
         case .navigationError(let msg, _): return "导航失败: \(msg)"
+        case .navigationControllerNotFound: return "导航控制器未找到"
         case .interceptorRejected(let reason, _): return "无法导航: \(reason)"
         case .configError(let msg, _): return "配置错误: \(msg)"
         case .patternSyntaxError(let pattern, _): return "路由格式错误: \(pattern)"
@@ -197,26 +213,27 @@ public enum RouterError: Error, LocalizedError, Equatable {
         switch self {
         case .invalidURL: return "ROUTER_001"
         case .viewControllerNotFound: return "ROUTER_002"
-        case .parameterError: return "ROUTER_003"
-        case .moduleNotRegistered: return "ROUTER_004"
-        case .moduleDependencyError: return "ROUTER_005"
-        case .unsupportedAction: return "ROUTER_006"
-        case .navigationError: return "ROUTER_007"
-        case .interceptorRejected: return "ROUTER_008"
-        case .configError: return "ROUTER_009"
-        case .patternSyntaxError: return "ROUTER_010"
-        case .animationNotFound: return "ROUTER_011"
-        case .actionNotFound: return "ROUTER_012"
-        case .moduleLoadFailed: return "ROUTER_013"
-        case .routeAlreadyExists: return "ROUTER_014"
-        case .routeNotFound: return "ROUTER_015"
-        case .maxRetriesExceeded: return "ROUTER_016"
-        case .interceptorReleased: return "ROUTER_017"
-        case .permissionDenied: return "ROUTER_018"
-        case .networkError: return "ROUTER_019"
-        case .timeoutError: return "ROUTER_020"
-        case .memoryError: return "ROUTER_021"
-        case .concurrencyError: return "ROUTER_022"
+        case .navigationControllerNotFound: return "ROUTER_003"
+        case .parameterError: return "ROUTER_004"
+        case .moduleNotRegistered: return "ROUTER_005"
+        case .moduleDependencyError: return "ROUTER_006"
+        case .unsupportedAction: return "ROUTER_007"
+        case .navigationError: return "ROUTER_008"
+        case .interceptorRejected: return "ROUTER_009"
+        case .configError: return "ROUTER_010"
+        case .patternSyntaxError: return "ROUTER_011"
+        case .animationNotFound: return "ROUTER_012"
+        case .actionNotFound: return "ROUTER_013"
+        case .moduleLoadFailed: return "ROUTER_014"
+        case .routeAlreadyExists: return "ROUTER_015"
+        case .routeNotFound: return "ROUTER_016"
+        case .maxRetriesExceeded: return "ROUTER_017"
+        case .interceptorReleased: return "ROUTER_018"
+        case .permissionDenied: return "ROUTER_019"
+        case .networkError: return "ROUTER_020"
+        case .timeoutError: return "ROUTER_021"
+        case .memoryError: return "ROUTER_022"
+        case .concurrencyError: return "ROUTER_023"
         }
     }
 
@@ -230,6 +247,7 @@ public enum RouterError: Error, LocalizedError, Equatable {
         case .moduleDependencyError(_, let debugInfo): return debugInfo
         case .unsupportedAction(_, let debugInfo): return debugInfo
         case .navigationError(_, let debugInfo): return debugInfo
+        case .navigationControllerNotFound(let debugInfo): return debugInfo
         case .interceptorRejected(_, let debugInfo): return debugInfo
         case .configError(_, let debugInfo): return debugInfo
         case .patternSyntaxError(_, let debugInfo): return debugInfo
