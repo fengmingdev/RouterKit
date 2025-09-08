@@ -47,12 +47,7 @@ public actor RouterState {
     /// - Parameter moduleName: 模块名称
     /// - Returns: 被卸载的模块实例
     func unregisterModule(_ moduleName: String) async -> (any ModuleProtocol)? {
-        let module = await moduleManager.unregisterModule(moduleName)
-        if module != nil {
-            await routeManager.cleanupRoutes(for: moduleName)
-            await cacheManager.clearCacheForModule(moduleName)
-        }
-        return module
+        return await moduleManager.unregisterModule(moduleName)
     }
     
     /// 检查模块是否已加载
@@ -84,6 +79,15 @@ public actor RouterState {
     /// 获取关键模块列表
     func getCriticalModules() async -> Set<String> {
         return await moduleManager.getCriticalModules()
+    }
+    
+    /// 通知模块状态变化
+    /// - Parameters:
+    ///   - module: 模块实例
+    ///   - state: 新状态
+    func notifyModuleStateChanged(_ module: ModuleProtocol, _ state: ModuleState) async {
+        // 这里可以添加状态变化的通知逻辑
+        print("RouterState: 模块 \(module.moduleName) 状态变化为 \(state)")
     }
     
     // MARK: - 路由管理代理方法

@@ -27,13 +27,20 @@ extension Router {
     internal func createViewController(for url: URL, parameters: RouterParameters) async throws -> PlatformViewController {
         let (path, urlParameters) = parseURL(url)
         let mergedParameters = parameters.merging(urlParameters) { (_, new) in new }
+        
+        print("Router: 开始创建视图控制器，路径: \(path), 参数: \(mergedParameters)")
 
         guard let (routeType, routeParameters, moduleName) = await findMatchingRoute(for: path) else {
+            print("Router: 未找到匹配的路由，路径: \(path)")
             throw RouterError.routeNotFound(path)
         }
+        
+        print("Router: 找到匹配的路由，类型: \(routeType), 模块: \(moduleName)")
 
         let finalParameters = mergedParameters.merging(routeParameters) { (_, new) in new }
         let context = RouteContext(url: url.absoluteString, parameters: finalParameters, moduleName: moduleName)
+        
+        print("Router: 创建路由上下文，URL: \(context.url), 参数: \(context.parameters)")
 
         return try await routeType.createViewController(context: context)
     }
@@ -76,12 +83,16 @@ extension Router {
             return nil
         }
         
+        print("Router: 开始查找匹配路由，路径: \(path)")
+        
         if let cachedResult = await state.matchRoute(url) {
+            print("Router: 从缓存中找到匹配路由")
             return (cachedResult.type, cachedResult.parameters, cachedResult.pattern.moduleName)
         }
 
         // 获取所有路由进行匹配
         let allRoutes = await state.getAllRoutes()
+        print("Router: 获取所有路由数量: \(allRoutes.count)")
 
         for (pattern, routableType) in allRoutes {
             let url = URL(string: "http://localhost" + path) ?? URL(string: "http://localhost/")!
@@ -89,10 +100,13 @@ extension Router {
             if matchResult.isExactMatch {
                 let parameters = matchResult.parameters.compactMapValues { $0 as? String } ?? [:]
                 let result = (routableType, parameters, pattern.moduleName)
+                print("Router: 找到精确匹配路由 - \(pattern.pattern) -> \(routableType)")
 
                 return result
             }
         }
+        
+        print("Router: 未找到匹配路由，路径: \(path)")
 
         return nil
     }

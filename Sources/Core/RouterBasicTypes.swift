@@ -13,6 +13,17 @@ public typealias RouterParameters = [String: Any]
 /// 路由完成回调，返回结果或错误
 public typealias RouterCompletion = (Result<Any?, RouterError>) -> Void
 
+// MARK: - 路由匹配器协议
+/// 路由匹配器协议，用于自定义路由匹配逻辑
+public protocol RouteMatcher {
+    /// 匹配路由路径
+    /// - Parameters:
+    ///   - path: 路由路径
+    ///   - pattern: 路由模式
+    /// - Returns: (是否匹配, 提取的参数)
+    func match(path: String, pattern: String) -> (Bool, RouterParameters)
+}
+
 // MARK: - 拦截器结果枚举
 /// 拦截器处理结果
 public enum InterceptorResult {

@@ -53,7 +53,7 @@ private class EmptyRoutable: Routable {
         #if canImport(UIKit)
         return UIViewController()
         #elseif canImport(AppKit)
-        return NSViewController()
+        return await NSViewController()
         #else
         return PlatformViewController()
         #endif

@@ -25,8 +25,10 @@ public class LoginModule: ModuleProtocol, @unchecked Sendable {
             do {
                 try await Router.shared.registerRoute("/LoginModule/login", for: LoginViewController.self)
                 self.isLoaded = true
+                print("LoginModule: 路由注册成功")
                 completion(true)
             } catch {
+                print("LoginModule: 路由注册失败 - \(error)")
                 completion(false)
             }
         }

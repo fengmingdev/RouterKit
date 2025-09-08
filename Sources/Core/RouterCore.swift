@@ -150,6 +150,7 @@ public final class Router: NSObject, @unchecked Sendable {
 
         // 检查模块是否已注册
         if !(await state.isModuleLoaded(routePattern.moduleName)) {
+            log("路由注册失败：模块未注册 - \(routePattern.moduleName)", level: .error)
             throw RouterError.moduleNotRegistered(routePattern.moduleName)
         }
 

@@ -2,125 +2,70 @@
 //  RouterModuleManagement.swift
 //  RouterKit
 //
-//  Created by RouterKit on 2025/1/10.
+//  Created by RouterKit on 2025/1/27.
 //
 
 import Foundation
 
-// MARK: - Router Module Management Extension
+// MARK: - 模块管理扩展
 @available(iOS 13.0, macOS 10.15, *)
 extension Router {
-    
-    // MARK: - Module Management
-    
     /// 注册模块
-    public func registerModule<T: ModuleProtocol>(_ module: T) async {
-        let moduleName = module.moduleName
+    /// - Parameter module: 要注册的模块实例
+    public func registerModule(_ module: ModuleProtocol) async {
+        print("Router: 开始注册模块 \(module.moduleName)")
+        await state.registerModule(module)
         
-        // 检查依赖
-        let dependenciesResolved = await resolveDependencies(for: module)
-        
-        if dependenciesResolved {
-            await state.registerModule(module)
-            
-            // 通知生命周期观察者
-            notifyModuleStateChanged(module, ModuleState.didLoad)
-            
-            // 重试依赖此模块的其他模块
-            retryDependentModules(for: moduleName)
-        } else {
-            // 如果依赖未解决，将模块添加到待处理列表
-            if dependentModules[moduleName] == nil {
-                dependentModules[moduleName] = []
-            }
-            
-            // 添加到依赖模块列表
-            for dependency in module.dependencies {
-                if dependentModules[dependency.moduleName] == nil {
-                    dependentModules[dependency.moduleName] = []
-                }
-                dependentModules[dependency.moduleName]?.append(Weak(value: module))
-            }
-        }
-    }
-    
-    /// 注销模块
-    public func unregisterModule(_ moduleName: String) async {
-        if let module = await state.getModule(moduleName) {
-            notifyModuleStateChanged(module, ModuleState.didUnload)
-        }
-        
-        _ = await state.unregisterModule(moduleName)
-        
-        // 清理依赖关系
-        dependentModules.removeValue(forKey: moduleName)
-        
-        // 从其他模块的依赖列表中移除
-        for (key, var weakModules) in dependentModules {
-            weakModules.removeAll { $0.value == nil }
-            if weakModules.isEmpty {
-                dependentModules.removeValue(forKey: key)
-            } else {
-                dependentModules[key] = weakModules
-            }
-        }
-    }
-    
-    /// 检查模块是否已加载
-    public func isModuleLoaded(_ moduleName: String) async -> Bool {
-        return await state.isModuleLoaded(moduleName)
-    }
-    
-    /// 获取模块（通用版本）
-    public func getModule(_ name: String) async -> (any ModuleProtocol)? {
-        return await state.getModule(name)
-    }
-    
-    /// 获取模块（类型安全版本）
-    public func getModule<T: ModuleProtocol>(_ type: T.Type) async -> T? {
-        return await state.getModule(type)
-    }
-    
-    /// 重试依赖模块
-    private func retryDependentModules(for moduleName: String) {
-        guard let dependents = dependentModules[moduleName] else { return }
-        
-        for weakModule in dependents {
-            if let module = weakModule.value as? ModuleProtocol {
+        // 加载模块
+        await MainActor.run {
+            module.load { success in
                 Task {
-                    let dependenciesResolved = await resolveDependencies(for: module)
-                    if dependenciesResolved {
-                        await state.registerModule(module)
-                        notifyModuleStateChanged(module, ModuleState.didLoad)
-                        retryDependentModules(for: module.moduleName)
+                    if success {
+                        print("Router: 模块 \(module.moduleName) 加载成功")
+                        await self.state.notifyModuleStateChanged(module, .didLoad)
+                    } else {
+                        print("Router: 模块 \(module.moduleName) 加载失败")
                     }
                 }
             }
         }
     }
-    
-    /// 解析依赖关系
-    private func resolveDependencies(for module: ModuleProtocol) async -> Bool {
-        for dependency in module.dependencies {
-            let isLoaded = await state.isModuleLoaded(dependency.moduleName)
-            if !isLoaded {
-                // 尝试创建依赖模块
-                if let dependencyModule = createModule(named: dependency.moduleName) {
-                    await registerModule(dependencyModule)
-                } else {
-                    return false
-                }
-            }
-        }
-        return true
-    }
-    
-    /// 创建模块
-    public func createModule(named moduleName: String) -> (any ModuleProtocol)? {
-        // 这里应该根据模块名称创建相应的模块实例
-        // 具体实现取决于你的模块注册机制
-        return nil
-    }
-    
 
+    /// 卸载模块
+    /// - Parameter moduleName: 模块名称
+    public func unregisterModule(_ moduleName: String) async {
+        print("Router: 开始卸载模块 \(moduleName)")
+        let module = await state.unregisterModule(moduleName)
+        if let module = module {
+            module.unload()
+            print("Router: 模块 \(moduleName) 卸载完成")
+        }
+    }
+
+    /// 检查模块是否已加载
+    /// - Parameter moduleName: 模块名称
+    /// - Returns: 模块是否已加载
+    public func isModuleLoaded(_ moduleName: String) async -> Bool {
+        let isLoaded = await state.isModuleLoaded(moduleName)
+        print("Router: 检查模块 \(moduleName) 是否已加载: \(isLoaded)")
+        return isLoaded
+    }
+
+    /// 获取模块实例
+    /// - Parameter name: 模块名称
+    /// - Returns: 模块实例
+    public func getModule(_ name: String) async -> ModuleProtocol? {
+        let module = await state.getModule(name)
+        print("Router: 获取模块 \(name): \(module != nil)")
+        return module
+    }
+
+    /// 获取指定类型的模块实例
+    /// - Parameter type: 模块类型
+    /// - Returns: 模块实例
+    public func getModule<T: ModuleProtocol>(_ type: T.Type) async -> T? {
+        let module = await state.getModule(type)
+        print("Router: 获取模块类型 \(type): \(module != nil)")
+        return module
+    }
 }

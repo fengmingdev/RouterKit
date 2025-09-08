@@ -166,16 +166,37 @@ extension Router {
     @available(iOS 13.0, macOS 10.15, *)
     @MainActor public func open(_ url: URL, from sourceVC: PlatformViewController? = nil, animated: Bool = true) async {
         guard let validSource = sourceVC ?? topMostViewController() else {
-            if #available(iOS 13.0, macOS 10.15, *) {
-                await RouterLogger.shared.log("无法获取源视图控制器进行导航", level: .error)
-            }
+            await RouterLogger.shared.log("无法获取源视图控制器进行导航", level: .error)
             return
         }
-
-        navigate(to: url.absoluteString)
-            .from(validSource)
-            .animated(animated)
-            .navigate()
+        
+        #if canImport(UIKit)
+        // 在UIKit中打开URL
+        if url.scheme == "http" || url.scheme == "https" {
+            UIApplication.shared.open(url, options: [:]) { success in
+                if !success {
+                    Task {
+                        await RouterLogger.shared.log("无法打开URL: \(url.absoluteString)", level: .error)
+                    }
+                }
+            }
+        } else {
+            // 处理自定义URL方案
+            await RouterLogger.shared.log("尝试打开自定义URL方案: \(url.absoluteString)", level: .info)
+            
+            let config = NavigationConfig(
+                sourceVC: validSource,
+                animated: animated
+            )
+            
+            navigate(to: url.absoluteString, config: config) { _ in
+                // 忽略结果
+            }
+        }
+        #elseif canImport(AppKit)
+        // 在AppKit中打开URL
+        NSWorkspace.shared.open(url)
+        #endif
     }
 
     /// 获取当前最顶层的视图控制器

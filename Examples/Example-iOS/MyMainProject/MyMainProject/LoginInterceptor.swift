@@ -21,6 +21,7 @@ public class LoginInterceptor: BaseInterceptor {
     public override func intercept(url: String, parameters: RouterParameters, completion: @escaping InterceptorCompletion) {
         Task {
             await log("开始登录状态检查：\(url)")
+            print("LoginInterceptor: 开始登录状态检查：\(url)")
 
             // 需要登录的路由列表
             let needLoginRoutes: [String] = ["/MessageModule/message"]
@@ -28,15 +29,18 @@ public class LoginInterceptor: BaseInterceptor {
             // 检查当前URL是否需要登录
             if needLoginRoutes.contains(where: { url.hasPrefix($0) }) {
                 let isLoggedIn = UserDefaults.standard.bool(forKey: "isLoggedIn")
+                print("LoginInterceptor: 检查登录状态 - \(isLoggedIn)")
                 if !isLoggedIn {
                     await log("未登录，拦截路由并跳转到登录页")
+                    print("LoginInterceptor: 未登录，拦截路由并跳转到登录页")
                     // 拦截路由，重定向到登录页，并携带来源URL
-                    completion(false, "需要登录才能访问", "/LoginModule/login", ["from": url], .present)
+                    completion(false, "/LoginModule/login", "需要登录才能访问", ["from": url], .present)
                     return
                 }
             }
 
             await log("登录状态验证通过，允许路由")
+            print("LoginInterceptor: 登录状态验证通过，允许路由")
             completion(true, nil, nil, nil, nil)
         }
     }

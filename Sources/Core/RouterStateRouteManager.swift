@@ -7,50 +7,38 @@
 
 import Foundation
 
-/// 路由状态路由管理器
-/// 负责管理所有路由的注册、匹配和清理
+/// 路由条目结构
+struct RouteEntry {
+    let routableType: Routable.Type
+    let priority: Int
+    let scheme: String
+}
+
+/// 路由管理器
 @available(iOS 13.0, macOS 10.15, *)
 actor RouterStateRouteManager {
-    
-    // MARK: - 存储容器
-    
-    /// 路由注册表项，包含可路由类型和优先级
-    private struct RouteEntry {
-        let routableType: Routable.Type
-        let priority: Int
-        let scheme: String
-    }
-    
-    /// 路由注册表
-    /// 键: 路由模式（RoutePattern），值: 路由注册表项
+    /// 存储已注册的路由
     private var routes: [RoutePattern: RouteEntry] = [:]
     
-    /// 按模块分组的路由模式
-    /// 键: 模块名称，值: 该模块下的所有路由模式数组
+    /// 存储模块的路由
     private var routesByModule: [String: [RoutePattern]] = [:]
     
-    /// 按命名空间分组的路由模式
-    /// 键: 命名空间名称，值: 该命名空间下的所有路由模式数组
-    private var routesByScheme: [String: [RoutePattern]] = [:]
-    
-    /// 路由Trie树（用于优化路由匹配性能）
-    private var routeTrie = RouteTrie()
-    
-    /// 路由权限配置
-    /// 键: 路由模式，值: 该路由的访问权限配置
+    /// 路由权限
     private var routePermissions: [RoutePattern: RoutePermission] = [:]
     
-    /// 路由匹配器
-    /// 键: 模式前缀，值: 对应的匹配器实例
-    private var matchers: [String: RouteMatcher] = ["": DefaultRouteMatcher()]
+    /// 自定义路由匹配器
+    private var customMatchers: [String: RouteMatcher] = [:]
     
-    // MARK: - 路由注册
-    
+    /// 路由Trie树
+    private let routeTrie = RouteTrie()
+
+    // MARK: - 路由注册方法
+
     /// 注册路由模式
     /// - Parameters:
     ///   - routePattern: 路由模式
-    ///   - routableType: 对应的可路由类型
-    ///   - permission: 路由权限配置（可选）
+    ///   - routableType: 可路由类型
+    ///   - permission: 路由权限
     ///   - priority: 路由优先级，数值越大优先级越高
     ///   - scheme: 路由命名空间
     /// - Throws: 当路由已存在时抛出错误
@@ -62,19 +50,20 @@ actor RouterStateRouteManager {
         let routeEntry = RouteEntry(routableType: routableType, priority: priority, scheme: scheme)
         routes[routePattern] = routeEntry
         routesByModule[routePattern.moduleName, default: []].append(routePattern)
-        routesByScheme[scheme, default: []].append(routePattern)
-        await routeTrie.insert(routePattern)
+        await routeTrie.insert(routePattern, priority: priority)
         
         if let permission = permission {
             routePermissions[routePattern] = permission
         }
+        
+        print("RouterStateRouteManager: 路由注册成功 - \(routePattern.pattern) -> \(routableType)")
     }
-    
-    /// 注册动态路由（无需模块预先注册）
+
+    /// 注册动态路由
     /// - Parameters:
     ///   - routePattern: 路由模式
-    ///   - routableType: 对应的可路由类型
-    ///   - permission: 路由权限配置（可选）
+    ///   - routableType: 可路由类型
+    ///   - permission: 路由权限
     ///   - priority: 路由优先级，数值越大优先级越高
     ///   - scheme: 路由命名空间
     /// - Throws: 当路由已存在时抛出错误
@@ -86,14 +75,15 @@ actor RouterStateRouteManager {
         let routeEntry = RouteEntry(routableType: routableType, priority: priority, scheme: scheme)
         routes[routePattern] = routeEntry
         routesByModule[routePattern.moduleName, default: []].append(routePattern)
-        routesByScheme[scheme, default: []].append(routePattern)
-        await routeTrie.insert(routePattern)
+        await routeTrie.insert(routePattern, priority: priority)
         
         if let permission = permission {
             routePermissions[routePattern] = permission
         }
+        
+        print("RouterStateRouteManager: 动态路由注册成功 - \(routePattern.pattern) -> \(routableType)")
     }
-    
+
     /// 卸载动态路由
     /// - Parameter routePattern: 要卸载的路由模式
     /// - Throws: 当路由不存在时抛出错误
@@ -107,165 +97,129 @@ actor RouterStateRouteManager {
         routePermissions.removeValue(forKey: routePattern)
         
         // 从模块路由列表中移除
-        if var moduleRoutes = routesByModule[routePattern.moduleName] {
-            moduleRoutes.removeAll { $0 == routePattern }
-            if moduleRoutes.isEmpty {
-                routesByModule.removeValue(forKey: routePattern.moduleName)
-            } else {
-                routesByModule[routePattern.moduleName] = moduleRoutes
-            }
+        if let index = routesByModule[routePattern.moduleName]?.firstIndex(of: routePattern) {
+            routesByModule[routePattern.moduleName]?.remove(at: index)
         }
         
-        // 从命名空间路由列表中移除
-        if let routeEntry = routes[routePattern] {
-            let scheme = routeEntry.scheme
-            if var schemeRoutes = routesByScheme[scheme] {
-                schemeRoutes.removeAll { $0 == routePattern }
-                if schemeRoutes.isEmpty {
-                    routesByScheme.removeValue(forKey: scheme)
-                } else {
-                    routesByScheme[scheme] = schemeRoutes
-                }
-            }
-        }
+        print("RouterStateRouteManager: 动态路由移除成功 - \(routePattern.pattern)")
     }
-    
-    // MARK: - 路由查询
-    
-    /// 获取指定模块的所有路由
-    /// - Parameter moduleName: 模块名称
-    /// - Returns: 路由模式数组
-    func getRoutesByModule(_ moduleName: String) -> [RoutePattern] {
-        return routesByModule[moduleName] ?? []
-    }
-    
-    /// 获取指定路由模式对应的可路由类型
-    /// - Parameter pattern: 路由模式
-    /// - Returns: 可路由类型（可选）
-    func getRoutableType(for pattern: RoutePattern) -> Routable.Type? {
-        return routes[pattern]?.routableType
-    }
-    
-    /// 获取所有已注册的路由
-    /// - Returns: 路由模式到可路由类型的映射
-    func getAllRoutes() -> [RoutePattern: Routable.Type] {
-        return routes.mapValues { $0.routableType }
-    }
-    
-    /// 匹配路由
-    /// - Parameter url: 要匹配的URL
-    /// - Returns: 匹配结果（路由模式、类型和参数）
-    func matchRoute(_ url: URL) async -> (pattern: RoutePattern, type: Routable.Type, parameters: RouterParameters)? {
-        // 将URL路径转换为组件数组
-        let pathComponents = url.pathComponents.filter { $0 != "/" && !$0.isEmpty }
-        
-        // 使用Trie树进行快速匹配
-        if let (matchedPattern, parameters) = await routeTrie.find(pathComponents) {
-            guard let routeEntry = routes[matchedPattern] else {
-                return nil
-            }
-            
-            return (matchedPattern, routeEntry.routableType, parameters)
-        }
-        
-        return nil
-    }
-    
-    // MARK: - 路由清理
-    
+
     /// 清理指定命名空间的所有路由
-    /// - Parameter scheme: 命名空间名称
     func cleanupRoutes(forScheme scheme: String) async {
-        guard let schemeRoutes = routesByScheme[scheme] else {
-            return
+        let patternsToRemove = routes.compactMap { pattern, entry in
+            entry.scheme == scheme ? pattern : nil
         }
         
-        for routePattern in schemeRoutes {
-            routes.removeValue(forKey: routePattern)
-            await routeTrie.remove(routePattern)
-            routePermissions.removeValue(forKey: routePattern)
-            
-            // 从模块路由列表中移除
-            if var moduleRoutes = routesByModule[routePattern.moduleName] {
-                moduleRoutes.removeAll { $0 == routePattern }
-                if moduleRoutes.isEmpty {
-                    routesByModule.removeValue(forKey: routePattern.moduleName)
-                } else {
-                    routesByModule[routePattern.moduleName] = moduleRoutes
-                }
-            }
+        for pattern in patternsToRemove {
+            routes.removeValue(forKey: pattern)
+            await routeTrie.remove(pattern)
+            routePermissions.removeValue(forKey: pattern)
         }
         
-        routesByScheme.removeValue(forKey: scheme)
+        print("RouterStateRouteManager: 清理命名空间路由 - \(scheme), 移除数量: \(patternsToRemove.count)")
     }
-    
-    /// 清理指定模块的所有关联路由
-    /// - Parameter moduleName: 模块名称
-    func cleanupRoutes(for moduleName: String) async {
-        if let moduleRoutes = routesByModule[moduleName] {
-            for route in moduleRoutes {
-                routes.removeValue(forKey: route)
-                await routeTrie.remove(route)
-                routePermissions.removeValue(forKey: route)
-            }
+
+    /// 获取指定模块的所有路由
+    func getRoutesByModule(_ moduleName: String) async -> [RoutePattern] {
+        let moduleRoutes = routesByModule[moduleName] ?? []
+        print("RouterStateRouteManager: 获取模块 \(moduleName) 的路由数量: \(moduleRoutes.count)")
+        return moduleRoutes
+    }
+
+    /// 获取指定路由模式对应的可路由类型
+    func getRoutableType(for pattern: RoutePattern) async -> Routable.Type? {
+        let routableType = routes[pattern]?.routableType
+        print("RouterStateRouteManager: 获取路由 \(pattern.pattern) 的类型: \(routableType != nil ? String(describing: routableType) : "nil")")
+        return routableType
+    }
+
+    /// 获取所有已注册的路由
+    public func getAllRoutes() async -> [RoutePattern: Routable.Type] {
+        let allRoutes = routes.mapValues { $0.routableType }
+        print("RouterStateRouteManager: 获取所有路由数量: \(allRoutes.count)")
+        return allRoutes
+    }
+
+    /// 匹配路由
+    func matchRoute(_ url: URL) async -> (pattern: RoutePattern, type: Routable.Type, parameters: RouterParameters)? {
+        print("RouterStateRouteManager: 开始匹配路由 - \(url.absoluteString)")
+        
+        let pathComponents = url.pathComponents.filter { $0 != "/" && !$0.isEmpty }
+        print("RouterStateRouteManager: 路径组件 - \(pathComponents)")
+        
+        guard let result = await routeTrie.find(pathComponents) else {
+            print("RouterStateRouteManager: 未找到匹配的路由")
+            return nil
         }
-        routesByModule.removeValue(forKey: moduleName)
+        
+        // 获取路由对应的类型
+        guard let routeEntry = routes[result.pattern] else {
+            print("RouterStateRouteManager: 未找到路由对应的类型 - \(result.pattern.pattern)")
+            return nil
+        }
+        
+        print("RouterStateRouteManager: 找到匹配的路由 - \(result.pattern.pattern)")
+        return (result.pattern, routeEntry.routableType, result.parameters)
     }
-    
-    // MARK: - 权限管理
-    
-    /// 获取指定路由的权限配置
-    /// - Parameter routePattern: 路由模式
-    /// - Returns: 权限配置（可选）
-    func getRoutePermission(for routePattern: RoutePattern) -> RoutePermission? {
+
+    /// 获取路由权限
+    func getRoutePermission(for routePattern: RoutePattern) async -> RoutePermission? {
         return routePermissions[routePattern]
     }
-    
-    /// 设置路由权限
-    /// - Parameters:
-    ///   - permission: 权限配置
-    ///   - routePattern: 路由模式
-    func setRoutePermission(_ permission: RoutePermission, for routePattern: RoutePattern) {
-        routePermissions[routePattern] = permission
-    }
-    
-    // MARK: - 匹配器管理
-    
+
     /// 注册路由匹配器
-    /// - Parameters:
-    ///   - matcher: 匹配器实例
-    ///   - patternPrefix: 模式前缀
-    func registerMatcher(_ matcher: RouteMatcher, for patternPrefix: String) {
-        matchers[patternPrefix] = matcher
+    func registerMatcher(_ matcher: RouteMatcher, for patternPrefix: String) async {
+        customMatchers[patternPrefix] = matcher
+        print("RouterStateRouteManager: 注册匹配器 - \(patternPrefix)")
     }
-    
+
     /// 查找适用的路由匹配器
-    /// - Parameter pattern: 路由模式字符串
-    /// - Returns: 匹配器实例
-    func findMatcher(for pattern: String) -> RouteMatcher {
-        for (prefix, matcher) in matchers {
+    func findMatcher(for pattern: String) async -> RouteMatcher {
+        for (prefix, matcher) in customMatchers {
             if pattern.hasPrefix(prefix) {
+                print("RouterStateRouteManager: 找到匹配器 - \(prefix) for \(pattern)")
                 return matcher
             }
         }
-        return matchers[""]! // 默认匹配器
+        
+        // 返回默认匹配器
+        print("RouterStateRouteManager: 使用默认匹配器 for \(pattern)")
+        return DefaultRouteMatcher()
     }
-    
-    /// 获取所有匹配器
-    /// - Returns: 匹配器字典
-    func getMatchers() -> [String: RouteMatcher] {
-        return matchers
+
+    // MARK: - 清理方法
+
+    /// 清理指定模块的所有路由
+    func cleanupRoutes(for moduleName: String) async {
+        guard let patterns = routesByModule[moduleName] else { return }
+        
+        for pattern in patterns {
+            routes.removeValue(forKey: pattern)
+            await routeTrie.remove(pattern)
+            routePermissions.removeValue(forKey: pattern)
+        }
+        
+        routesByModule.removeValue(forKey: moduleName)
+        print("RouterStateRouteManager: 清理模块 \(moduleName) 的路由，数量: \(patterns.count)")
     }
-    
+
     // MARK: - 状态重置
-    
-    /// 重置所有路由数据
+
+    /// 重置路由管理器状态
     func reset() async {
         routes.removeAll()
         routesByModule.removeAll()
-        routesByScheme.removeAll()
-        routeTrie = RouteTrie()
         routePermissions.removeAll()
-        matchers = ["": DefaultRouteMatcher()]
+        customMatchers.removeAll()
+        print("RouterStateRouteManager: 路由管理器状态已重置")
+    }
+}
+
+// MARK: - 默认路由匹配器
+class DefaultRouteMatcher: RouteMatcher {
+    func match(path: String, pattern: String) -> (Bool, RouterParameters) {
+        // 简单的字符串匹配实现
+        let isMatch = path == pattern
+        return (isMatch, [:])
     }
 }

@@ -159,6 +159,12 @@ public class LoginViewController: UIViewController, Routable {
         return LoginViewController()
     }
 
+    public static func createViewController(context: RouteContext) async throws -> PlatformViewController {
+        // 添加日志以便调试
+        print("LoginViewController: 正在创建视图控制器，参数: \(context.parameters)")
+        return LoginViewController()
+    }
+
     public static func performAction(_ action: String, parameters: RouterParameters?, completion: @escaping RouterCompletion) {
         // 可以在这里实现登录相关的动作
 //        completion(nil, nil)

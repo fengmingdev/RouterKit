@@ -179,7 +179,16 @@ extension Router {
                 }
 
                 // 创建视图控制器
-                let viewController = try await createViewController(for: url, parameters: config.parameters)
+                let viewController: PlatformViewController
+                do {
+                    viewController = try await createViewController(for: url, parameters: config.parameters)
+                } catch let error as RouterError {
+                    // 捕获特定的路由错误并提供更详细的错误信息
+                    throw RouterError.viewControllerNotFound(config.urlString, debugInfo: "创建视图控制器失败: \(error.localizedDescription)")
+                } catch {
+                    // 捕获其他错误
+                    throw RouterError.navigationError("创建视图控制器时发生未知错误: \(error.localizedDescription)")
+                }
 
                 await MainActor.run {
                     // 拦截器可能覆盖导航类型
