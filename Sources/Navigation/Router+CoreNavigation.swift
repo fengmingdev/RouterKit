@@ -114,32 +114,48 @@ extension Router {
         var presentationStyle: NavigationPresentationStyle?
 
         for interceptor in interceptors {
-            let result = try await withCheckedThrowingContinuation { continuation in
+            // 使用 continuation 来处理异步拦截器回调
+            let result: (Bool, String?, String?, RouterParameters?, NavigationPresentationStyle?) = await withCheckedContinuation { continuation in
                 interceptor.intercept(
                     url: currentUrl,
                     parameters: currentParameters
-                ) { allow, redirectUrl, errorMsg, newParams, _ in
-                    if allow {
-                        continuation.resume(returning: InterceptorResult.continue(redirectUrl, newParams))
-                    } else if let error = errorMsg {
-                        continuation.resume(throwing: RouterError.interceptorRejected(error))
-                    } else {
-                        continuation.resume(throwing: RouterError.interceptorRejected("拦截器拒绝访问"))
-                    }
+                ) { allow, redirectUrl, errorMsg, newParams, style in
+                    continuation.resume(returning: (allow, redirectUrl, errorMsg, newParams, style))
                 }
             }
 
-            switch result {
-            case .continue(let newUrl, let newParameters):
-                currentUrl = newUrl ?? currentUrl
-                currentParameters = newParameters ?? currentParameters
-
-            case .redirect(let redirectUrl, let redirectParameters):
-                currentUrl = redirectUrl
-                currentParameters = redirectParameters ?? [:]
-
-            case .block(let error):
-                throw RouterError.interceptorRejected(error)
+            // 处理拦截器结果
+            let (allow, redirectUrl, errorMsg, newParams, style) = result
+            
+            if allow {
+                // 允许继续导航，可能有重定向URL和新参数
+                if let newUrl = redirectUrl {
+                    currentUrl = newUrl
+                }
+                if let newParams = newParams {
+                    currentParameters = newParams
+                }
+                if let newStyle = style {
+                    presentationStyle = newStyle
+                }
+            } else {
+                // 拦截器拒绝访问，但可能提供重定向URL
+                if let redirectUrl = redirectUrl {
+                    // 有重定向URL，执行重定向
+                    currentUrl = redirectUrl
+                    if let newParams = newParams {
+                        currentParameters = newParams
+                    }
+                    if let newStyle = style {
+                        presentationStyle = newStyle
+                    }
+                } else if let error = errorMsg {
+                    // 没有重定向URL但有错误信息，抛出错误
+                    throw RouterError.interceptorRejected(error)
+                } else {
+                    // 没有重定向URL也没有错误信息
+                    throw RouterError.interceptorRejected("拦截器拒绝访问")
+                }
             }
         }
 
@@ -191,24 +207,6 @@ extension Router {
                 }
 
                 await MainActor.run {
-                    // 拦截器可能覆盖导航类型
-                    var finalType = config.type
-                    if let style = config.presentationStyle {
-                        switch style {
-                        case .push:
-                            finalType = .push
-                        case .present:
-                            finalType = .present
-                        case .presentWithNavigation:
-                            finalType = .present
-                        case .replace:
-                            finalType = .replace
-                        case .custom:
-                            // 自定义样式保持原有类型
-                            break
-                        }
-                    }
-
                     #if canImport(UIKit)
                     // 处理自定义动画
                     if let animationId = config.animationId {
@@ -225,30 +223,51 @@ extension Router {
 
                     // 执行导航
                     do {
-                        let sourceViewController = config.sourceVC ?? topMostViewController()
+                        let sourceViewController = config.sourceVC ?? getTopMostViewController()
+                        
+                        // 检查源视图控制器是否存在
+                        guard let sourceVC = sourceViewController else {
+                            throw RouterError.navigationError("无法获取源视图控制器")
+                        }
+
+                        // 拦截器可能覆盖导航类型
+                        var finalType = config.type
+                        if let style = config.presentationStyle {
+                            switch style {
+                            case .push:
+                                finalType = .push
+                            case .present, .presentWithNavigation:
+                                finalType = .present
+                            case .replace:
+                                finalType = .replace
+                            case .custom:
+                                // 自定义样式保持原有类型
+                                break
+                            }
+                        }
 
                         switch finalType {
                         case .push:
-                            try push(from: sourceViewController, to: viewController, animated: config.animated)
+                            try push(from: sourceVC, to: viewController, animated: config.animated)
 
                         case .present:
-                            present(from: sourceViewController, to: viewController, animated: config.animated) {
+                            present(from: sourceVC, to: viewController, animated: config.animated) {
                                 config.completion(Result.success(()))
                             }
                             return // present有自己的completion处理
 
                         case .replace:
-                            try replace(from: sourceViewController, to: viewController, animated: config.animated)
+                            try replace(from: sourceVC, to: viewController, animated: config.animated)
 
                         case .pop:
-                            pop(from: sourceViewController, animated: config.animated)
+                            pop(from: sourceVC, animated: config.animated)
 
                         case .popToRoot:
-                            popToRoot(from: sourceViewController, animated: config.animated)
+                            popToRoot(from: sourceVC, animated: config.animated)
 
                         case .popTo:
                             if let targetVC = findViewController(matching: config.urlString) {
-                                popTo(target: targetVC, from: sourceViewController, animated: config.animated)
+                                popTo(target: targetVC, from: sourceVC, animated: config.animated)
                             } else {
                                 throw RouterError.viewControllerNotFound(config.urlString)
                             }
@@ -304,7 +323,7 @@ extension Router {
     /// - Returns: 匹配的视图控制器
     private func findViewController(matching urlString: String) -> PlatformViewController? {
         #if canImport(UIKit)
-        guard let navigationController = topMostViewController().navigationController else {
+        guard let navigationController = topMostViewController()?.navigationController else {
             return nil
         }
 

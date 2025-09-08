@@ -18,8 +18,34 @@ public class ErrorHandlingModule: ModuleProtocol {
     required public init() {}
 
     public func load(completion: @escaping (Bool) -> Void) {
-        register()
-        completion(true)
+        // 注册全局错误处理器
+        setupGlobalErrorHandlers()
+        
+        // 注册路由
+        Task {
+            do {
+                // 注册错误处理示例主页面
+                try await Router.shared.registerRoute("/ErrorHandlingModule/errorHandling", for: ErrorHandlingViewController.self)
+        
+                // 注册路由错误页面
+                try await Router.shared.registerRoute("/ErrorHandlingModule/routeError", for: RouteErrorViewController.self)
+        
+                // 注册网络错误页面
+                try await Router.shared.registerRoute("/ErrorHandlingModule/networkError", for: NetworkErrorViewController.self)
+        
+                // 注册错误恢复页面
+                try await Router.shared.registerRoute("/ErrorHandlingModule/errorRecovery", for: ErrorRecoveryViewController.self)
+        
+                // 注册错误日志页面
+                try await Router.shared.registerRoute("/ErrorHandlingModule/errorLogging", for: ErrorLogViewController.self)
+
+                print("ErrorHandlingModule: 模块注册完成")
+                completion(true)
+            } catch {
+                print("ErrorHandlingModule: 路由注册失败 - \(error)")
+                completion(false)
+            }
+        }
     }
 
     public func unload() {

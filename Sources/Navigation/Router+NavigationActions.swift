@@ -21,15 +21,15 @@ import AppKit
 extension Router {
     /// 获取最顶层的视图控制器
     /// - Returns: 当前最顶层的视图控制器
-    internal func topMostViewController() -> PlatformViewController {
+    internal func getTopMostViewController() -> PlatformViewController? {
         #if canImport(UIKit)
         guard let windowScene = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene })
             .first(where: { $0.activationState == .foregroundActive }),
               let window = windowScene.windows.first(where: { $0.isKeyWindow }),
               let rootViewController = window.rootViewController else {
-            // 如果找不到根视图控制器，创建一个默认的
-            return UIViewController()
+            // 如果找不到根视图控制器，返回nil
+            return nil
         }
 
         return findTopMostViewController(from: rootViewController)
@@ -234,3 +234,13 @@ extension Router: UIViewControllerTransitioningDelegate {
 #endif
 
 #endif
+
+// MARK: - 公开方法扩展
+@available(iOS 13.0, macOS 10.15, *)
+extension Router {
+    /// 获取最顶层的视图控制器
+    /// - Returns: 当前最顶层的视图控制器
+    @MainActor public func topMostViewController() -> PlatformViewController? {
+        return getTopMostViewController()
+    }
+}

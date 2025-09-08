@@ -165,7 +165,7 @@ extension Router {
     /// 快速打开URL
     @available(iOS 13.0, macOS 10.15, *)
     @MainActor public func open(_ url: URL, from sourceVC: PlatformViewController? = nil, animated: Bool = true) async {
-        guard let validSource = sourceVC ?? topMostViewController() else {
+        guard let validSource = sourceVC ?? Router.shared.getTopMostViewController() else {
             await RouterLogger.shared.log("无法获取源视图控制器进行导航", level: .error)
             return
         }
@@ -199,26 +199,6 @@ extension Router {
         #endif
     }
 
-    /// 获取当前最顶层的视图控制器
-    public func topMostViewController() -> PlatformViewController? {
-        #if canImport(UIKit)
-        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-              let window = windowScene.windows.first(where: { $0.isKeyWindow }) else {
-            return nil
-        }
-
-        var topVC = window.rootViewController
-        while let presentedVC = topVC?.presentedViewController {
-            topVC = presentedVC
-        }
-        return topVC
-        #elseif canImport(AppKit)
-        // 在macOS上，我们返回nil，因为AppKit的视图控制器概念不同
-        return nil
-        #else
-        return nil
-        #endif
-    }
 }
 
 #endif

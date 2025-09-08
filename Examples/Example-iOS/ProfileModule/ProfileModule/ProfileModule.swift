@@ -23,9 +23,9 @@ public class ProfileModuleManager: ModuleProtocol, @unchecked Sendable {
 
         // 注册用户资料相关路由
         Task {
-            try await Router.shared.registerRoute("profile", for: ProfileViewController.self)
-            try await Router.shared.registerRoute("profile/edit", for: ProfileEditViewController.self)
-            try await Router.shared.registerRoute("profile/avatar", for: AvatarUploadViewController.self)
+            try await Router.shared.registerRoute("/ProfileModule/profile", for: ProfileViewController.self)
+            try await Router.shared.registerRoute("/ProfileModule/edit", for: ProfileEditViewController.self)
+            try await Router.shared.registerRoute("/ProfileModule/avatar", for: AvatarUploadViewController.self)
         }
 
         self.isLoaded = true
