@@ -70,8 +70,7 @@ extension Router {
 
     /// 从RouterState获取所有路由（辅助方法）
     private func getAllRoutes() async -> [RoutePattern: Routable.Type] {
-        // 这里需要在RouterState中添加获取所有路由的方法
-        // 实际实现应该是通过RouterState的异步接口获取
-        await state.getAllRoutes()
+        // 通过RouterState获取所有路由
+        return await state.getAllRoutes()
     }
 }

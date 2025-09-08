@@ -99,7 +99,7 @@ class ProtectedContentViewController: UIViewController, Routable {
         label.text = "This is protected content"
         view.addSubview(label)
     }
-    
+
     func viewController(with parameters: RouterParameters?) -> UIViewController {
         return ProtectedContentViewController()
     }
@@ -108,7 +108,7 @@ class ProtectedContentViewController: UIViewController, Routable {
 // 使用示例
 func setupInterceptor() async {
     let router = Router.shared
-    
+
     // 添加拦截器
     do {
         try await router.addInterceptor(AuthInterceptor())
@@ -124,7 +124,7 @@ func setupInterceptor() async {
     } catch {
         print("Failed to register route: \(error)")
     }
-    
+
     // 测试导航
     Router.push(to: "/protected/content") { result in
         switch result {

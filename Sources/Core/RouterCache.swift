@@ -6,6 +6,11 @@
 //
 
 import Foundation
+#if canImport(UIKit)
+import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
 
 /// 路由缓存管理器
 /// 提供多层缓存机制，包括内存缓存、LRU缓存和预编译缓存
@@ -39,9 +44,19 @@ public actor RouterCache {
 
 /// 空路由类型（用于初始化）
 private class EmptyRoutable: Routable {
-    #if canImport(UIKit)
-    static func viewController(with parameters: RouterParameters?) -> UIViewController? {
+    #if canImport(UIKit) || canImport(AppKit)
+    static func viewController(with parameters: RouterParameters?) -> PlatformViewController? {
         return nil
+    }
+    
+    static func createViewController(context: RouteContext) async throws -> PlatformViewController {
+        #if canImport(UIKit)
+        return UIViewController()
+        #elseif canImport(AppKit)
+        return NSViewController()
+        #else
+        return PlatformViewController()
+        #endif
     }
     #endif
 
@@ -105,32 +120,46 @@ private class EmptyRoutable: Routable {
             emptyPattern = try RoutePattern("/empty")
         } catch {
             // 如果创建失败，使用默认模式
-            emptyPattern = try! RoutePattern("/")
+            do {
+                emptyPattern = try RoutePattern("/")
+            } catch {
+                // 如果连最简单的模式都失败，使用一个预定义的空模式
+                // 这里我们创建一个最基本的模式，不依赖RoutePattern的复杂逻辑
+                emptyPattern = RoutePattern.empty
+            }
         }
-        
+
         let emptyItem = CacheItem(
             pattern: emptyPattern,
             routableType: EmptyRoutable.self,
             parameters: [:],
             scheme: ""
         )
-        
+
         self.head = LRUNode(key: "", item: emptyItem)
         self.tail = LRUNode(key: "", item: emptyItem)
-        
+
         head.next = tail
         tail.prev = head
     }
 
     // MARK: - 缓存操作
 
+    /// 缓存查询结果
+    struct CacheResult {
+        let pattern: RoutePattern
+        let type: Routable.Type
+        let parameters: RouterParameters
+        let scheme: String
+    }
+    
     /// 获取缓存项
-    func get(_ url: String) -> (pattern: RoutePattern, type: Routable.Type, parameters: RouterParameters, scheme: String)? {
+    func get(_ url: String) -> CacheResult? {
         // 首先检查热点缓存
         if let hotItem = hotCache[url], !isExpired(hotItem) {
             hitCount += 1
             hotCache[url] = hotItem.incrementHit()
-            return (hotItem.pattern, hotItem.routableType, hotItem.parameters, hotItem.scheme)
+            return CacheResult(pattern: hotItem.pattern, type: hotItem.routableType, parameters: hotItem.parameters, scheme: hotItem.scheme)
         }
 
         // 检查预编译缓存
@@ -144,7 +173,7 @@ private class EmptyRoutable: Routable {
                 moveToHotCache(url, updatedItem)
             }
 
-            return (updatedItem.pattern, updatedItem.routableType, updatedItem.parameters, updatedItem.scheme)
+            return CacheResult(pattern: updatedItem.pattern, type: updatedItem.routableType, parameters: updatedItem.parameters, scheme: updatedItem.scheme)
         }
 
         // 检查主缓存
@@ -162,7 +191,7 @@ private class EmptyRoutable: Routable {
                 removeFromLRU(url)
             }
 
-            return (updatedItem.pattern, updatedItem.routableType, updatedItem.parameters, updatedItem.scheme)
+            return CacheResult(pattern: updatedItem.pattern, type: updatedItem.routableType, parameters: updatedItem.parameters, scheme: updatedItem.scheme)
         }
 
         missCount += 1
@@ -273,12 +302,22 @@ private class EmptyRoutable: Routable {
 
     // MARK: - 统计信息
 
+    /// 缓存统计信息
+    struct CacheStatistics {
+        let hitCount: Int
+        let missCount: Int
+        let hitRate: Double
+        let cacheSize: Int
+        let hotCacheSize: Int
+        let precompiledCacheSize: Int
+    }
+    
     /// 获取缓存统计信息
-    func getStatistics() -> (hitCount: Int, missCount: Int, hitRate: Double, cacheSize: Int, hotCacheSize: Int, precompiledCacheSize: Int) {
+    func getStatistics() -> CacheStatistics {
         let totalRequests = hitCount + missCount
         let hitRate = totalRequests > 0 ? Double(hitCount) / Double(totalRequests) : 0.0
 
-        return (
+        return CacheStatistics(
             hitCount: hitCount,
             missCount: missCount,
             hitRate: hitRate,

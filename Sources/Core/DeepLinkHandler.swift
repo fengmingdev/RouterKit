@@ -11,24 +11,6 @@ import UIKit
 import AppKit
 #endif
 
-// 跨平台类型别名
-typealias PlatformApplication = UIApplication
-
-typealias PlatformUserActivity = NSUserActivity
-
-typealias PlatformOpenURLOptionsKey = UIApplication.OpenURLOptionsKey
-
-#if os(macOS)
-typealias UIApplication = NSApplication
-typealias UIApplicationDelegate = NSObjectProtocol
-extension NSApplication {
-    struct OpenURLOptionsKey: Hashable, Equatable, RawRepresentable {
-        let rawValue: String
-        static let sourceApplication = OpenURLOptionsKey(rawValue: "sourceApplication")
-    }
-}
-#endif
-
 /// 深度链接处理类，支持从外部唤起App内页面
 @available(iOS 13.0, macOS 10.15, *)
 final class DeepLinkHandler {
@@ -99,16 +81,26 @@ final class DeepLinkHandler {
         do {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
                 #if canImport(UIKit)
-                Router.shared.navigate(to: path, parameters: nil, from: nil, type: .push, animated: true, animationId: nil, completion: { result in
-                    switch result {
-                    case .success:
-                        Router.shared.log("成功处理外部链接: \(urlString)", level: .info)
-                        continuation.resume()
-                    case .failure(let error):
-                        Router.shared.log("处理外部链接失败: \(error)", level: .error)
-                        continuation.resume(throwing: error)
+                Router.shared.navigate(
+                    to: path,
+                    config: NavigationConfig(
+                        parameters: nil,
+                        sourceVC: nil,
+                        type: .push,
+                        animated: true,
+                        animationId: nil
+                    ),
+                    completion: { result in
+                        switch result {
+                        case .success:
+                            Router.shared.log("成功处理外部链接: \(urlString)", level: .info)
+                            continuation.resume()
+                        case .failure(let error):
+                            Router.shared.log("处理外部链接失败: \(error)", level: .error)
+                            continuation.resume(throwing: error)
+                        }
                     }
-                })
+                )
                 #else
                 continuation.resume(throwing: RouterError.unsupportedAction("UIKit navigation not available on this platform"))
                 #endif

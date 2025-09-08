@@ -10,12 +10,12 @@ import UserNotifications
 import RouterKit
 
 public class NotificationSettingsViewController: UIViewController, Routable {
-    
+
     // MARK: - Routable Protocol Implementation
     public static func viewController(with parameters: RouterParameters?) -> UIViewController? {
         return NotificationSettingsViewController()
     }
-    
+
     public static func performAction(_ action: String, parameters: RouterParameters?, completion: @escaping RouterCompletion) {
         switch action {
         case "enableAllNotifications":
@@ -36,11 +36,11 @@ public class NotificationSettingsViewController: UIViewController, Routable {
             completion(.failure(RouterError.actionNotFound(action)))
         }
     }
-    
+
     private let tableView = UITableView(frame: .zero, style: .insetGrouped)
     private var notificationSettings: NotificationSettings!
     private var systemAuthorizationStatus: UNAuthorizationStatus = .notDetermined
-    
+
     // 设置项数据
     private let settingSections: [(title: String, items: [SettingItem])] = [
         ("推送通知", [
@@ -62,23 +62,23 @@ public class NotificationSettingsViewController: UIViewController, Routable {
             SettingItem(key: "weekendMode", title: "周末模式", type: .switch, description: "周末减少通知频率")
         ])
     ]
-    
+
     public override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
         loadNotificationSettings()
         checkNotificationPermission()
     }
-    
+
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         checkNotificationPermission()
     }
-    
+
     private func setupUI() {
         view.backgroundColor = .systemBackground
         title = "通知设置"
-        
+
         // 添加权限设置按钮
         navigationItem.rightBarButtonItem = UIBarButtonItem(
             title: "权限设置",
@@ -86,7 +86,7 @@ public class NotificationSettingsViewController: UIViewController, Routable {
             target: self,
             action: #selector(openSystemSettings)
         )
-        
+
         // 配置表格视图
         tableView.translatesAutoresizingMaskIntoConstraints = false
         tableView.delegate = self
@@ -94,22 +94,22 @@ public class NotificationSettingsViewController: UIViewController, Routable {
         tableView.register(SwitchTableViewCell.self, forCellReuseIdentifier: "SwitchCell")
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "DisclosureCell")
         view.addSubview(tableView)
-        
+
         NSLayoutConstraint.activate([
             tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
-        
+
         // 添加权限状态头部视图
         setupPermissionHeaderView()
     }
-    
+
     private func setupPermissionHeaderView() {
         let headerView = UIView(frame: CGRect(x: 0, y: 0, width: view.bounds.width, height: 120))
         headerView.backgroundColor = .clear
-        
+
         // 权限状态容器
         let statusContainer = UIView()
         statusContainer.translatesAutoresizingMaskIntoConstraints = false
@@ -120,7 +120,7 @@ public class NotificationSettingsViewController: UIViewController, Routable {
         statusContainer.layer.shadowRadius = 8
         statusContainer.layer.shadowOpacity = 0.1
         headerView.addSubview(statusContainer)
-        
+
         // 状态图标
         let statusIcon = UIImageView()
         statusIcon.translatesAutoresizingMaskIntoConstraints = false
@@ -128,7 +128,7 @@ public class NotificationSettingsViewController: UIViewController, Routable {
         statusIcon.tintColor = .systemBlue
         statusIcon.contentMode = .scaleAspectFit
         statusContainer.addSubview(statusIcon)
-        
+
         // 状态标题
         let statusTitle = UILabel()
         statusTitle.translatesAutoresizingMaskIntoConstraints = false
@@ -136,7 +136,7 @@ public class NotificationSettingsViewController: UIViewController, Routable {
         statusTitle.font = UIFont.boldSystemFont(ofSize: 16)
         statusTitle.textColor = .label
         statusContainer.addSubview(statusTitle)
-        
+
         // 状态描述
         let statusDescription = UILabel()
         statusDescription.translatesAutoresizingMaskIntoConstraints = false
@@ -146,40 +146,40 @@ public class NotificationSettingsViewController: UIViewController, Routable {
         statusDescription.numberOfLines = 0
         statusDescription.tag = 100 // 用于后续更新
         statusContainer.addSubview(statusDescription)
-        
+
         NSLayoutConstraint.activate([
             // 状态容器约束
             statusContainer.topAnchor.constraint(equalTo: headerView.topAnchor, constant: 16),
             statusContainer.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 20),
             statusContainer.trailingAnchor.constraint(equalTo: headerView.trailingAnchor, constant: -20),
             statusContainer.bottomAnchor.constraint(equalTo: headerView.bottomAnchor, constant: -16),
-            
+
             // 状态图标约束
             statusIcon.leadingAnchor.constraint(equalTo: statusContainer.leadingAnchor, constant: 16),
             statusIcon.centerYAnchor.constraint(equalTo: statusContainer.centerYAnchor),
             statusIcon.widthAnchor.constraint(equalToConstant: 24),
             statusIcon.heightAnchor.constraint(equalToConstant: 24),
-            
+
             // 状态标题约束
             statusTitle.topAnchor.constraint(equalTo: statusContainer.topAnchor, constant: 16),
             statusTitle.leadingAnchor.constraint(equalTo: statusIcon.trailingAnchor, constant: 12),
             statusTitle.trailingAnchor.constraint(equalTo: statusContainer.trailingAnchor, constant: -16),
-            
+
             // 状态描述约束
             statusDescription.topAnchor.constraint(equalTo: statusTitle.bottomAnchor, constant: 4),
             statusDescription.leadingAnchor.constraint(equalTo: statusIcon.trailingAnchor, constant: 12),
             statusDescription.trailingAnchor.constraint(equalTo: statusContainer.trailingAnchor, constant: -16),
             statusDescription.bottomAnchor.constraint(equalTo: statusContainer.bottomAnchor, constant: -16)
         ])
-        
+
         tableView.tableHeaderView = headerView
     }
-    
+
     private func loadNotificationSettings() {
         notificationSettings = SettingsManager.shared.getCurrentSettings().notifications
         tableView.reloadData()
     }
-    
+
     private func checkNotificationPermission() {
         UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
             DispatchQueue.main.async {
@@ -188,14 +188,14 @@ public class NotificationSettingsViewController: UIViewController, Routable {
             }
         }
     }
-    
+
     private func updatePermissionStatus(_ settings: UNNotificationSettings) {
         guard let statusLabel = tableView.tableHeaderView?.viewWithTag(100) as? UILabel else { return }
-        
+
         let statusText: String
         let iconName: String
         let iconColor: UIColor
-        
+
         switch settings.authorizationStatus {
         case .authorized:
             statusText = "通知权限已授权，可以正常接收推送通知"
@@ -222,9 +222,9 @@ public class NotificationSettingsViewController: UIViewController, Routable {
             iconName = "exclamationmark.circle.fill"
             iconColor = .systemGray
         }
-        
+
         statusLabel.text = statusText
-        
+
         // 更新图标
         if let headerView = tableView.tableHeaderView,
            let statusContainer = headerView.subviews.first,
@@ -233,15 +233,15 @@ public class NotificationSettingsViewController: UIViewController, Routable {
             statusIcon.tintColor = iconColor
         }
     }
-    
+
     @objc private func openSystemSettings() {
         guard let settingsUrl = URL(string: UIApplication.openSettingsURLString) else { return }
-        
+
         if UIApplication.shared.canOpenURL(settingsUrl) {
             UIApplication.shared.open(settingsUrl)
         }
     }
-    
+
     private func requestNotificationPermission() {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { [weak self] granted, error in
             DispatchQueue.main.async {
@@ -254,16 +254,16 @@ public class NotificationSettingsViewController: UIViewController, Routable {
             }
         }
     }
-    
+
     private func updateNotificationSetting(key: String, value: Bool) {
         print("NotificationSettingsViewController: 更新通知设置 \(key) = \(value)")
-        
+
         // 如果是主开关且系统权限未授权，先请求权限
         if key == "pushEnabled" && value && systemAuthorizationStatus == .notDetermined {
             requestNotificationPermission()
             return
         }
-        
+
         // 更新设置
         switch key {
         case "pushEnabled":
@@ -287,69 +287,69 @@ public class NotificationSettingsViewController: UIViewController, Routable {
         default:
             break
         }
-        
+
         // 保存设置
         SettingsManager.shared.updateNotificationSettings(notificationSettings)
     }
-    
+
     private func showQuietHoursSettings() {
         let alert = UIAlertController(
             title: "免打扰时间",
             message: "设置免打扰时间段，在此期间将不会收到通知",
             preferredStyle: .actionSheet
         )
-        
+
         let timeOptions = [
             ("22:00 - 08:00", "晚上10点到早上8点"),
             ("23:00 - 07:00", "晚上11点到早上7点"),
             ("00:00 - 09:00", "午夜到早上9点"),
             ("自定义时间", "设置自定义免打扰时间")
         ]
-        
+
         for (time, description) in timeOptions {
             alert.addAction(UIAlertAction(title: "\(time)\n\(description)", style: .default) { _ in
                 print("NotificationSettingsViewController: 设置免打扰时间: \(time)")
                 // 这里可以实现具体的时间设置逻辑
             })
         }
-        
+
         alert.addAction(UIAlertAction(title: "取消", style: .cancel))
-        
+
         // iPad适配
         if let popover = alert.popoverPresentationController {
             popover.sourceView = view
             popover.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 0, height: 0)
         }
-        
+
         present(alert, animated: true)
     }
 }
 
 // MARK: - UITableViewDataSource
 extension NotificationSettingsViewController: UITableViewDataSource {
-    
+
     public func numberOfSections(in tableView: UITableView) -> Int {
         return settingSections.count
     }
-    
+
     public func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return settingSections[section].items.count
     }
-    
+
     public func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
         return settingSections[section].title
     }
-    
+
     public func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
         if section == 0 {
             return "推送通知需要系统权限，请确保在系统设置中已开启通知权限。"
         }
         return nil
     }
-    
+
     public func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let item = settingSections[indexPath.section].items[indexPath.row]
-        
+
         switch item.type {
         case .switch:
             let cell = tableView.dequeueReusableCell(withIdentifier: "SwitchCell", for: indexPath) as! SwitchTableViewCell
@@ -358,7 +358,7 @@ extension NotificationSettingsViewController: UITableViewDataSource {
             }
             cell.detailTextLabel?.text = item.description
             return cell
-            
+
         case .disclosure:
             let cell = tableView.dequeueReusableCell(withIdentifier: "DisclosureCell", for: indexPath)
             cell.textLabel?.text = item.title
@@ -367,7 +367,7 @@ extension NotificationSettingsViewController: UITableViewDataSource {
             return cell
         }
     }
-    
+
     private func getSettingValue(for key: String) -> Bool {
         switch key {
         case "pushEnabled": return notificationSettings.pushEnabled
@@ -386,12 +386,12 @@ extension NotificationSettingsViewController: UITableViewDataSource {
 
 // MARK: - UITableViewDelegate
 extension NotificationSettingsViewController: UITableViewDelegate {
-    
+
     public func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
-        
+
         let item = settingSections[indexPath.section].items[indexPath.row]
-        
+
         if item.key == "quietHours" {
             showQuietHoursSettings()
         }
@@ -404,7 +404,7 @@ private struct SettingItem {
     let title: String
     let type: SettingType
     let description: String
-    
+
     enum SettingType {
         case `switch`
         case disclosure

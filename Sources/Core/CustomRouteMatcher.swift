@@ -69,8 +69,8 @@ class DefaultRouteMatcher: RouteMatcher {
                     }
 
                     if let match = regex.matches(in: pathComponent, options: [], range: range).first {
-                        for (i, name) in paramNames.enumerated() {
-                            let groupRange = match.range(at: i + 1)
+                        for (index, name) in paramNames.enumerated() {
+                            let groupRange = match.range(at: index + 1)
                             if groupRange.location != NSNotFound,
                                let range = Range(groupRange, in: pathComponent) {
                                 params[name] = String(pathComponent[range])

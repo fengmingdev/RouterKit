@@ -34,7 +34,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         let tabBarController = TabBarController()
         window?.rootViewController = tabBarController
         window?.makeKeyAndVisible()
-        
+
         // 处理启动时的深度链接
         if let url = launchOptions?[.url] as? URL {
             _ = DeepLinkHandler.shared.handleLaunchURL(url)
@@ -56,23 +56,23 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // If any sessions were discarded while the application was not running, this will be called shortly after application:didFinishLaunchingWithOptions.
         // Use this method to release any resources that were specific to the discarded scenes, as they will not return.
     }
-    
+
     // MARK: - Deep Link Handling
-    
+
     /// 处理URL Scheme深度链接
-    func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
+    func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
         print("AppDelegate: 接收到URL Scheme: \(url.absoluteString)")
         return DeepLinkHandler.shared.handleURLScheme(url)
     }
-    
+
     /// 处理Universal Links
     func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
-        
+
         guard userActivity.activityType == NSUserActivityTypeBrowsingWeb,
               let url = userActivity.webpageURL else {
             return false
         }
-        
+
         print("AppDelegate: 接收到Universal Link: \(url.absoluteString)")
         return DeepLinkHandler.shared.handleUniversalLink(url)
     }
@@ -111,38 +111,38 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             let authModule = MessageModule()
             await Router.shared.registerModule(authModule)
             print("AppDelegate: MessageModule 注册成功")
-            
+
             // TODO: 注册用户资料模块 - 需要将模块源文件添加到项目中
              print("AppDelegate: 开始注册 ProfileModule")
              let profileModule = ProfileModuleManager()
              await Router.shared.registerModule(profileModule)
              print("AppDelegate: ProfileModule 注册成功")
-            
+
             // TODO: 注册其他模块 - 需要将模块源文件添加到项目中
             // 注册设置模块
              print("AppDelegate: 开始注册 SettingsModule")
              let settingsModule = SettingsModule()
              await Router.shared.registerModule(settingsModule)
              print("AppDelegate: SettingsModule 注册成功")
-            
+
             // 注册参数传递模块
              print("AppDelegate: 开始注册 ParameterPassingModule")
              let parameterPassingModule = ParameterPassingModule()
              await Router.shared.registerModule(parameterPassingModule)
              print("AppDelegate: ParameterPassingModule 注册成功")
-            
+
             // 注册拦截器模块
              print("AppDelegate: 开始注册 InterceptorModule")
              let interceptorModule = InterceptorModule()
              await Router.shared.registerModule(interceptorModule)
              print("AppDelegate: InterceptorModule 注册成功")
-            
+
             // 注册错误处理模块
              print("AppDelegate: 开始注册 ErrorHandlingModule")
              let errorHandlingModule = ErrorHandlingModule()
              await Router.shared.registerModule(errorHandlingModule)
              print("AppDelegate: ErrorHandlingModule 注册成功")
-            
+
             // 注册动画模块
              print("AppDelegate: 开始注册 AnimationModule")
              let animationModule = AnimationModule()

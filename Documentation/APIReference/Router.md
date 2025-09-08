@@ -166,7 +166,7 @@ public func setLogLevel(_ level: LogLevel) async
 
 ```swift
 // 注册路由
-Router.shared.register("/user/:id", for: UserViewController.self)
+Router.shared.registerRoute("/user/:id", for: UserViewController.self)
 
 // 导航
 Router.shared.navigate(to: "/user/123") { result in

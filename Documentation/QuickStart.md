@@ -16,7 +16,7 @@ RouterKit支持多种安装方式：
 ### CocoaPods
 
 1. 确保已安装CocoaPods
-2. 在Podfile中添加: `pod 'RouterKit'`
+2. 在Podfile中添加: `pod 'RouterKit-Swift'`
 3. 运行: `pod install`
 
 ### Carthage
@@ -50,8 +50,8 @@ Task {
 }
 
 // 或使用链式调用
-router.register("/home", for: HomeViewController.self)
-router.register("/user/:id", for: UserViewController.self)
+router.register("/home", for: HomeViewController.self).register()
+router.register("/user/:id", for: UserViewController.self).register()
 ```
 
 ### 执行导航

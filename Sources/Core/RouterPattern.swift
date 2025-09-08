@@ -18,10 +18,33 @@ public struct RoutePattern: Hashable {
         case regex(NSRegularExpression, [String]) // 正则表达式匹配（含捕获组名称）
     }
 
-    let pattern: String              // 原始模式字符串（如"/UserModule/profile/:id"）
-    let components: [Component]      // 解析后的组件数组
-    let moduleName: String           // 所属模块名（模式的第一个组件）
-    private let cachedHashValue: Int // 缓存哈希值（优化性能）
+    var pattern: String              // 原始模式字符串（如"/UserModule/profile/:id"）
+    var components: [Component]      // 解析后的组件数组
+    var moduleName: String           // 所属模块名（模式的第一个组件）
+    private var cachedHashValue: Int // 缓存哈希值（优化性能）
+    
+    /// 空路由模式的静态实例
+    static let empty: RoutePattern = {
+        do {
+            return try RoutePattern("/empty")
+        } catch {
+            // 如果创建失败，返回一个最基本的模式
+            var pattern = RoutePattern()
+            pattern.pattern = "/empty"
+            pattern.components = [.literal("empty")]
+            pattern.moduleName = "empty"
+            pattern.cachedHashValue = "/empty".hashValue
+            return pattern
+        }
+    }()
+    
+    /// 私有的无参数初始化方法，仅用于内部创建
+    private init() {
+        self.pattern = ""
+        self.components = []
+        self.moduleName = ""
+        self.cachedHashValue = 0
+    }
 
     /// 初始化并解析路由模式
     /// - Parameter pattern: 原始模式字符串
@@ -152,7 +175,7 @@ extension UUID: RouteParameterConvertible {
                 parameters[item.name] = item.value
             }
         }
-        
+
         // 提取fragment参数
         if let fragment = url.fragment {
             parameters["fragment"] = fragment
@@ -200,8 +223,8 @@ extension UUID: RouteParameterConvertible {
             case .regex(let regex, let paramNames):
                 let matches = regex.matches(in: urlComponent, range: NSRange(urlComponent.startIndex..., in: urlComponent))
                 if let match = matches.first {
-                    for (i, paramName) in paramNames.enumerated() {
-                        let rangeIndex = i + 1
+                    for (index, paramName) in paramNames.enumerated() {
+                        let rangeIndex = index + 1
                         if rangeIndex < match.numberOfRanges {
                             let range = match.range(at: rangeIndex)
                             if let swiftRange = Range(range, in: urlComponent) {

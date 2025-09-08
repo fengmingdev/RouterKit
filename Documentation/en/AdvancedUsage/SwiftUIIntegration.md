@@ -21,20 +21,29 @@ struct ContentView: View {
 
 ### Registering SwiftUI Views
 
-Register SwiftUI views as routes using the `registerSwiftUI` method:
+Register SwiftUI views as routes using the `registerRoute` method with SwiftUIRoutable:
 
 ```swift
-// Register a SwiftUI view
-Router.shared.registerSwiftUI("/home") { context in
-    HomeView()
+// Create SwiftUI Routable classes
+class HomeRoutable: UIViewController, Routable {
+    static func createViewController(context: RouteContext) async throws -> UIViewController {
+        return UIHostingController(rootView: HomeView())
+    }
 }
 
-// Register a SwiftUI view with parameters
-Router.shared.registerSwiftUI("/user/:id") { context in
-    guard let userId = context.parameters["id"] else {
-        return AnyView(ErrorView(message: "Invalid user ID"))
+class UserRoutable: UIViewController, Routable {
+    static func createViewController(context: RouteContext) async throws -> UIViewController {
+        guard let userId = context.parameters["id"] else {
+            return UIHostingController(rootView: ErrorView(message: "Invalid user ID"))
+        }
+        return UIHostingController(rootView: UserView(userId: userId))
     }
-    return AnyView(UserView(userId: userId))
+}
+
+// Register the routes
+Task {
+    try await Router.shared.registerRoute("/home", for: HomeRoutable.self)
+    try await Router.shared.registerRoute("/user/:id", for: UserRoutable.self)
 }
 ```
 
@@ -66,12 +75,19 @@ struct NavigationBarView: View {
 You can pass parameters from the route context to your SwiftUI views:
 
 ```swift
-// Register a route with parameters
-Router.shared.registerSwiftUI("/product/:id") { context in
-    guard let productId = context.parameters["id"] else {
-        return AnyView(ErrorView(message: "Invalid product ID"))
+// Create a Routable class for product view
+class ProductRoutable: UIViewController, Routable {
+    static func createViewController(context: RouteContext) async throws -> UIViewController {
+        guard let productId = context.parameters["id"] else {
+            return UIHostingController(rootView: ErrorView(message: "Invalid product ID"))
+        }
+        return UIHostingController(rootView: ProductView(productId: productId))
     }
-    return AnyView(ProductView(productId: productId))
+}
+
+// Register the route
+Task {
+    try await Router.shared.registerRoute("/product/:id", for: ProductRoutable.self)
 }
 
 // SwiftUI view that accepts parameters
@@ -89,9 +105,16 @@ struct ProductView: View {
 Customize the navigation style for SwiftUI routes:
 
 ```swift
-// Set navigation style for a route
-Router.shared.registerSwiftUI("/settings", navigationStyle: .sheet) { context in
-    SettingsView()
+// Create a Routable class for settings view
+class SettingsRoutable: UIViewController, Routable {
+    static func createViewController(context: RouteContext) async throws -> UIViewController {
+        return UIHostingController(rootView: SettingsView())
+    }
+}
+
+// Register the route
+Task {
+    try await Router.shared.registerRoute("/settings", for: SettingsRoutable.self)
 }
 
 // Available navigation styles
@@ -127,7 +150,7 @@ Router.shared.addInterceptor(AuthInterceptor())
 ## Best Practices
 
 - Use `RouterView` as the root view of your SwiftUI hierarchy
-- Prefer `registerSwiftUI` over `register` for SwiftUI views
+- Use `registerRoute` with `UIHostingController` for SwiftUI views
 - Use `RouterState` to observe and manipulate the current route
 - Keep route parameters simple and pass only what's needed
 - Use interceptors for cross-cutting concerns like authentication

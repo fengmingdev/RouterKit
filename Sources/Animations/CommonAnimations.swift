@@ -13,19 +13,6 @@ import AppKit
 #endif
 import QuartzCore
 
-// 定义跨平台类型别名
-#if os(iOS) || os(tvOS)
-typealias PlatformViewController = UIViewController
-typealias PlatformView = UIView
-typealias PlatformScreen = UIScreen
-typealias PlatformContextTransitioning = UIViewControllerContextTransitioning
-#elseif os(macOS)
-typealias PlatformViewController = NSViewController
-typealias PlatformView = NSView
-typealias PlatformScreen = NSScreen
-typealias PlatformContextTransitioning = NSViewControllerContextTransitioning
-#endif
-
 // MARK: - 滑动动画
 /// 从右侧滑入的转场动画
 class SlideInFromRightAnimation: NavigationAnimatable {

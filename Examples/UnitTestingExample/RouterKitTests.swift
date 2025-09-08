@@ -26,7 +26,7 @@ class RouterKitTests: XCTestCase {
                 return TestViewController()
             }
         }
-        
+
         do {
             // 注册路由
             try await router.registerRoute("/home", for: TestViewController.self)
@@ -53,7 +53,7 @@ class RouterKitTests: XCTestCase {
                 return UserViewController()
             }
         }
-        
+
         do {
             // 注册带参数的路由
             try await router.registerRoute("/user/:id", for: UserViewController.self)
@@ -81,7 +81,7 @@ class RouterKitTests: XCTestCase {
                 return SearchViewController()
             }
         }
-        
+
         do {
             try await router.registerRoute("/search", for: SearchViewController.self)
 
@@ -132,7 +132,7 @@ class RouterKitTests: XCTestCase {
                 wasCalled = true
                 return false // 不拦截
             }
-            
+
             func intercept(url: URL, parameters: RouterParameters?) async -> InterceptorResult {
                 return .continue
             }
@@ -147,7 +147,7 @@ class RouterKitTests: XCTestCase {
         }
 
         let interceptor = TestInterceptor()
-        
+
         do {
             try await router.addInterceptor(interceptor)
             try await router.registerRoute("/test", for: TestViewController.self)

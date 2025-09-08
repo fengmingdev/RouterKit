@@ -10,14 +10,14 @@ import RouterKit
 
 /// 路由错误示例页面
 class RouteErrorViewController: UIViewController, Routable {
-    
+
     // MARK: - Routable Protocol Implementation
     public static func viewController(with parameters: RouterParameters?) -> UIViewController? {
         let vc = RouteErrorViewController()
         vc.routeParameters = parameters
         return vc
     }
-    
+
     public static func performAction(_ action: String, parameters: RouterParameters?, completion: @escaping RouterCompletion) {
         switch action {
         case "testRouteNotFound":
@@ -32,35 +32,35 @@ class RouteErrorViewController: UIViewController, Routable {
             completion(.failure(RouterKit.RouterError.actionNotFound(action, debugInfo: "Action not supported in RouteErrorViewController")))
         }
     }
-    
+
     // MARK: - UI Components
-    
+
     private let scrollView = UIScrollView()
     private let contentView = UIView()
-    
+
     private let titleLabel = UILabel()
     private let descriptionLabel = UILabel()
-    
+
     // 错误测试按钮
     private let testStackView = UIStackView()
-    
+
     // 错误信息显示
     private let errorInfoView = UIView()
     private let errorTitleLabel = UILabel()
     private let errorMessageLabel = UILabel()
     private let errorDetailsLabel = UILabel()
-    
+
     // 恢复策略
     private let recoveryStackView = UIStackView()
-    
+
     // MARK: - Properties
-    
+
     private var lastError: Error?
     private var lastContext: RouteContext?
     private var routeParameters: RouterParameters?
-    
+
     // MARK: - Lifecycle
-    
+
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
@@ -68,13 +68,13 @@ class RouteErrorViewController: UIViewController, Routable {
         setupActions()
         handleRouteParameters()
     }
-    
+
     // MARK: - Setup Methods
-    
+
     private func setupUI() {
         view.backgroundColor = .systemBackground
         title = "路由错误"
-        
+
         // 添加返回按钮
         navigationItem.leftBarButtonItem = UIBarButtonItem(
             title: "返回",
@@ -82,20 +82,20 @@ class RouteErrorViewController: UIViewController, Routable {
             target: self,
             action: #selector(backButtonTapped)
         )
-        
+
         // 配置滚动视图
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         contentView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(scrollView)
         scrollView.addSubview(contentView)
-        
+
         // 配置标题
         titleLabel.text = "路由错误示例"
         titleLabel.font = .boldSystemFont(ofSize: 24)
         titleLabel.textAlignment = .center
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(titleLabel)
-        
+
         // 配置描述
         descriptionLabel.text = "演示各种路由错误场景，包括路由未找到、模块未注册、参数错误等，以及相应的错误处理和恢复策略。"
         descriptionLabel.font = .systemFont(ofSize: 16)
@@ -104,24 +104,24 @@ class RouteErrorViewController: UIViewController, Routable {
         descriptionLabel.textAlignment = .center
         descriptionLabel.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(descriptionLabel)
-        
+
         setupTestSection()
         setupErrorInfoSection()
         setupRecoverySection()
     }
-    
+
     private func setupTestSection() {
         let testLabel = UILabel()
         testLabel.text = "错误测试"
         testLabel.font = .boldSystemFont(ofSize: 18)
         testLabel.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(testLabel)
-        
+
         testStackView.axis = .vertical
         testStackView.spacing = 12
         testStackView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(testStackView)
-        
+
         let tests = [
             ("路由未找到", "测试访问不存在的路由", "testRouteNotFound", UIColor.systemRed),
             ("模块未注册", "测试访问未注册模块的路由", "testModuleNotRegistered", UIColor.systemOrange),
@@ -132,30 +132,30 @@ class RouteErrorViewController: UIViewController, Routable {
             ("参数类型错误", "测试参数类型不匹配的路由", "testInvalidParameterType", UIColor.systemGreen),
             ("路由超时", "测试路由处理超时", "testRouteTimeout", UIColor.systemIndigo)
         ]
-        
+
         for (title, description, action, color) in tests {
             let button = createTestButton(title: title, description: description, action: action, color: color)
             testStackView.addArrangedSubview(button)
         }
-        
+
         NSLayoutConstraint.activate([
             testLabel.topAnchor.constraint(equalTo: descriptionLabel.bottomAnchor, constant: 30),
             testLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             testLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
-            
+
             testStackView.topAnchor.constraint(equalTo: testLabel.bottomAnchor, constant: 12),
             testStackView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             testStackView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20)
         ])
     }
-    
+
     private func setupErrorInfoSection() {
         let errorLabel = UILabel()
         errorLabel.text = "错误信息"
         errorLabel.font = .boldSystemFont(ofSize: 18)
         errorLabel.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(errorLabel)
-        
+
         errorInfoView.backgroundColor = .systemRed.withAlphaComponent(0.1)
         errorInfoView.layer.cornerRadius = 12
         errorInfoView.layer.borderWidth = 1
@@ -163,65 +163,65 @@ class RouteErrorViewController: UIViewController, Routable {
         errorInfoView.isHidden = true
         errorInfoView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(errorInfoView)
-        
+
         errorTitleLabel.text = "暂无错误"
         errorTitleLabel.font = .boldSystemFont(ofSize: 16)
         errorTitleLabel.textColor = .systemRed
         errorTitleLabel.translatesAutoresizingMaskIntoConstraints = false
         errorInfoView.addSubview(errorTitleLabel)
-        
+
         errorMessageLabel.text = ""
         errorMessageLabel.font = .systemFont(ofSize: 14)
         errorMessageLabel.textColor = .label
         errorMessageLabel.numberOfLines = 0
         errorMessageLabel.translatesAutoresizingMaskIntoConstraints = false
         errorInfoView.addSubview(errorMessageLabel)
-        
+
         errorDetailsLabel.text = ""
         errorDetailsLabel.font = .systemFont(ofSize: 12)
         errorDetailsLabel.textColor = .secondaryLabel
         errorDetailsLabel.numberOfLines = 0
         errorDetailsLabel.translatesAutoresizingMaskIntoConstraints = false
         errorInfoView.addSubview(errorDetailsLabel)
-        
+
         NSLayoutConstraint.activate([
             errorLabel.topAnchor.constraint(equalTo: testStackView.bottomAnchor, constant: 30),
             errorLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             errorLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
-            
+
             errorInfoView.topAnchor.constraint(equalTo: errorLabel.bottomAnchor, constant: 12),
             errorInfoView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             errorInfoView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
-            
+
             errorTitleLabel.topAnchor.constraint(equalTo: errorInfoView.topAnchor, constant: 16),
             errorTitleLabel.leadingAnchor.constraint(equalTo: errorInfoView.leadingAnchor, constant: 16),
             errorTitleLabel.trailingAnchor.constraint(equalTo: errorInfoView.trailingAnchor, constant: -16),
-            
+
             errorMessageLabel.topAnchor.constraint(equalTo: errorTitleLabel.bottomAnchor, constant: 8),
             errorMessageLabel.leadingAnchor.constraint(equalTo: errorInfoView.leadingAnchor, constant: 16),
             errorMessageLabel.trailingAnchor.constraint(equalTo: errorInfoView.trailingAnchor, constant: -16),
-            
+
             errorDetailsLabel.topAnchor.constraint(equalTo: errorMessageLabel.bottomAnchor, constant: 8),
             errorDetailsLabel.leadingAnchor.constraint(equalTo: errorInfoView.leadingAnchor, constant: 16),
             errorDetailsLabel.trailingAnchor.constraint(equalTo: errorInfoView.trailingAnchor, constant: -16),
             errorDetailsLabel.bottomAnchor.constraint(equalTo: errorInfoView.bottomAnchor, constant: -16)
         ])
     }
-    
+
     private func setupRecoverySection() {
         let recoveryLabel = UILabel()
         recoveryLabel.text = "错误恢复"
         recoveryLabel.font = .boldSystemFont(ofSize: 18)
         recoveryLabel.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(recoveryLabel)
-        
+
         recoveryStackView.axis = .horizontal
         recoveryStackView.spacing = 12
         recoveryStackView.distribution = .fillEqually
         recoveryStackView.isHidden = true
         recoveryStackView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(recoveryStackView)
-        
+
         let retryButton = UIButton(type: .system)
         retryButton.setTitle("重试", for: .normal)
         retryButton.backgroundColor = .systemBlue
@@ -230,7 +230,7 @@ class RouteErrorViewController: UIViewController, Routable {
         retryButton.addTarget(self, action: #selector(retryButtonTapped), for: .touchUpInside)
         retryButton.translatesAutoresizingMaskIntoConstraints = false
         retryButton.heightAnchor.constraint(equalToConstant: 44).isActive = true
-        
+
         let fallbackButton = UIButton(type: .system)
         fallbackButton.setTitle("备用路由", for: .normal)
         fallbackButton.backgroundColor = .systemGreen
@@ -239,7 +239,7 @@ class RouteErrorViewController: UIViewController, Routable {
         fallbackButton.addTarget(self, action: #selector(fallbackButtonTapped), for: .touchUpInside)
         fallbackButton.translatesAutoresizingMaskIntoConstraints = false
         fallbackButton.heightAnchor.constraint(equalToConstant: 44).isActive = true
-        
+
         let clearButton = UIButton(type: .system)
         clearButton.setTitle("清除错误", for: .normal)
         clearButton.backgroundColor = .systemGray
@@ -248,23 +248,23 @@ class RouteErrorViewController: UIViewController, Routable {
         clearButton.addTarget(self, action: #selector(clearErrorButtonTapped), for: .touchUpInside)
         clearButton.translatesAutoresizingMaskIntoConstraints = false
         clearButton.heightAnchor.constraint(equalToConstant: 44).isActive = true
-        
+
         recoveryStackView.addArrangedSubview(retryButton)
         recoveryStackView.addArrangedSubview(fallbackButton)
         recoveryStackView.addArrangedSubview(clearButton)
-        
+
         NSLayoutConstraint.activate([
             recoveryLabel.topAnchor.constraint(equalTo: errorInfoView.bottomAnchor, constant: 30),
             recoveryLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             recoveryLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
-            
+
             recoveryStackView.topAnchor.constraint(equalTo: recoveryLabel.bottomAnchor, constant: 12),
             recoveryStackView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             recoveryStackView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             recoveryStackView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -20)
         ])
     }
-    
+
     private func setupConstraints() {
         NSLayoutConstraint.activate([
             // 滚动视图约束
@@ -272,30 +272,30 @@ class RouteErrorViewController: UIViewController, Routable {
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            
+
             // 内容视图约束
             contentView.topAnchor.constraint(equalTo: scrollView.topAnchor),
             contentView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
             contentView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
             contentView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
             contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor),
-            
+
             // 标题约束
             titleLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 20),
             titleLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             titleLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
-            
+
             // 描述约束
             descriptionLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 12),
             descriptionLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             descriptionLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20)
         ])
     }
-    
+
     private func setupActions() {
         // Actions are set up in button creation methods
     }
-    
+
     private func handleRouteParameters() {
         // 处理路由参数
         if let parameters = routeParameters {
@@ -307,9 +307,9 @@ class RouteErrorViewController: UIViewController, Routable {
             }
         }
     }
-    
+
     // MARK: - Helper Methods
-    
+
     private func createTestButton(title: String, description: String, action: String, color: UIColor) -> UIView {
         let containerView = UIView()
         containerView.backgroundColor = color.withAlphaComponent(0.1)
@@ -317,14 +317,14 @@ class RouteErrorViewController: UIViewController, Routable {
         containerView.layer.borderWidth = 1
         containerView.layer.borderColor = color.cgColor
         containerView.translatesAutoresizingMaskIntoConstraints = false
-        
+
         let titleLabel = UILabel()
         titleLabel.text = title
         titleLabel.font = .boldSystemFont(ofSize: 16)
         titleLabel.textColor = color
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         containerView.addSubview(titleLabel)
-        
+
         let descriptionLabel = UILabel()
         descriptionLabel.text = description
         descriptionLabel.font = .systemFont(ofSize: 14)
@@ -332,37 +332,37 @@ class RouteErrorViewController: UIViewController, Routable {
         descriptionLabel.numberOfLines = 0
         descriptionLabel.translatesAutoresizingMaskIntoConstraints = false
         containerView.addSubview(descriptionLabel)
-        
+
         let button = UIButton(type: .system)
         button.backgroundColor = .clear
         button.translatesAutoresizingMaskIntoConstraints = false
         button.addTarget(self, action: #selector(testButtonTapped(_:)), for: .touchUpInside)
         containerView.addSubview(button)
-        
+
         // 存储动作信息
         objc_setAssociatedObject(button, "action", action, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
-        
+
         NSLayoutConstraint.activate([
             containerView.heightAnchor.constraint(equalToConstant: 70),
-            
+
             titleLabel.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 12),
             titleLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
             titleLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
-            
+
             descriptionLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 4),
             descriptionLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
             descriptionLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
             descriptionLabel.bottomAnchor.constraint(lessThanOrEqualTo: containerView.bottomAnchor, constant: -12),
-            
+
             button.topAnchor.constraint(equalTo: containerView.topAnchor),
             button.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
             button.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
             button.bottomAnchor.constraint(equalTo: containerView.bottomAnchor)
         ])
-        
+
         return containerView
     }
-    
+
     private func performErrorTest(_ errorType: String) {
         switch errorType {
         case "testRouteNotFound":
@@ -385,14 +385,14 @@ class RouteErrorViewController: UIViewController, Routable {
             break
         }
     }
-    
+
     private func showError(_ error: Error, context: RouteContext? = nil) {
         lastError = error
         lastContext = context
-        
+
         errorInfoView.isHidden = false
         recoveryStackView.isHidden = false
-        
+
         if let routerError = error as? RouterKit.RouterError {
             switch routerError {
             case .routeNotFound(let route):
@@ -439,7 +439,7 @@ class RouteErrorViewController: UIViewController, Routable {
                 errorTitleLabel.text = "不支持的操作"
                 errorMessageLabel.text = "不支持的操作: \(action)"
                 errorDetailsLabel.text = "该操作当前不被支持。"
-            case .navigationControllerNotFound(_):
+            case .navigationControllerNotFound:
                 errorTitleLabel.text = "导航控制器未找到"
                 errorMessageLabel.text = "未找到导航控制器"
                 errorDetailsLabel.text = "请确保当前视图在导航控制器中。"
@@ -467,11 +467,11 @@ class RouteErrorViewController: UIViewController, Routable {
                 errorTitleLabel.text = "路由已存在"
                 errorMessageLabel.text = "路由已存在: \(route)"
                 errorDetailsLabel.text = "该路由已经注册。"
-            case .maxRetriesExceeded(_, _):
+            case .maxRetriesExceeded:
                 errorTitleLabel.text = "重试次数超限"
                 errorMessageLabel.text = "重试次数已达上限"
                 errorDetailsLabel.text = "请稍后再试。"
-            case .interceptorReleased(_):
+            case .interceptorReleased:
                 errorTitleLabel.text = "拦截器已释放"
                 errorMessageLabel.text = "拦截器已释放"
                 errorDetailsLabel.text = "拦截器对象已被释放。"
@@ -493,106 +493,106 @@ class RouteErrorViewController: UIViewController, Routable {
             errorMessageLabel.text = error.localizedDescription
             errorDetailsLabel.text = "发生了未知错误，请联系开发者。"
         }
-        
+
         // 记录错误到ErrorManager
         ErrorManager.shared.handleError(error, context: context)
-        
+
         // 滚动到错误信息区域
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             self.scrollView.scrollRectToVisible(self.errorInfoView.frame, animated: true)
         }
     }
-    
+
     private func clearError() {
         lastError = nil
         lastContext = nil
         errorInfoView.isHidden = true
         recoveryStackView.isHidden = true
     }
-    
+
     // MARK: - Error Test Methods
-    
-    private func testRouteNotFound() {
+
+    func testRouteNotFound() {
         let route = "/NonExistentModule/nonExistentRoute"
         let error = RouterKit.RouterError.routeNotFound(route, debugInfo: "Test route not found")
         let context = RouteContext(url: route, parameters: [:], moduleName: "ErrorHandlingModule")
         showError(error, context: context)
     }
-    
-    private func testModuleNotRegistered() {
+
+    func testModuleNotRegistered() {
         let route = "/UnregisteredModule/someRoute"
         let error = RouterKit.RouterError.moduleNotRegistered("UnregisteredModule", debugInfo: "Test module not registered")
         let context = RouteContext(url: route, parameters: [:], moduleName: "UnregisteredModule")
         showError(error, context: context)
     }
-    
-    private func testInvalidRouteFormat() {
+
+    func testInvalidRouteFormat() {
         let route = "invalid-route-format"
         let error = RouterKit.RouterError.invalidURL(route, debugInfo: "Invalid route format test")
         let context = RouteContext(url: route, parameters: [:], moduleName: "Unknown")
         showError(error, context: context)
     }
-    
-    private func testCircularRoute() {
+
+    func testCircularRoute() {
         let route = "/TestModule/circularRoute"
         let error = RouterKit.RouterError.navigationError("循环依赖: \(route)", debugInfo: "Test circular dependency")
         let context = RouteContext(url: route, parameters: [:], moduleName: "TestModule")
         showError(error, context: context)
     }
-    
-    private func testPermissionDenied() {
+
+    func testPermissionDenied() {
         let route = "/AdminModule/adminPanel"
         let error = RouterKit.RouterError.permissionDenied(route, debugInfo: "Test permission denied")
         let context = RouteContext(url: route, parameters: [:], moduleName: "AdminModule")
         showError(error, context: context)
     }
-    
-    private func testMissingParameters() {
+
+    func testMissingParameters() {
         let route = "/UserModule/profile"
         let error = RouterKit.RouterError.parameterError("缺少必需参数: userId", suggestion: "请提供有效的userId参数", debugInfo: "Test missing parameter")
         let context = RouteContext(url: route, parameters: [:], moduleName: "UserModule")
         showError(error, context: context)
     }
-    
-    private func testInvalidParameterType() {
+
+    func testInvalidParameterType() {
         let route = "/ProductModule/detail"
         let error = RouterKit.RouterError.parameterError("参数 productId 类型错误，期望 Int 类型", suggestion: "请提供正确类型的productId", debugInfo: "Test invalid parameter type")
         let context = RouteContext(url: route, parameters: ["productId": "invalid_id"], moduleName: "ProductModule")
         showError(error, context: context)
     }
-    
-    private func testRouteTimeout() {
+
+    func testRouteTimeout() {
         let route = "/SlowModule/slowRoute"
         let error = RouterKit.RouterError.timeoutError("路由处理超时: \(route)", debugInfo: "Test timeout error")
         let context = RouteContext(url: route, parameters: [:], moduleName: "SlowModule")
         showError(error, context: context)
     }
-    
+
     // MARK: - Action Methods
-    
+
     @objc private func backButtonTapped() {
         Router.pop()
     }
-    
+
     @objc private func testButtonTapped(_ sender: UIButton) {
         guard let action = objc_getAssociatedObject(sender, "action") as? String else { return }
         performErrorTest(action)
     }
-    
+
     @objc private func retryButtonTapped() {
         guard let _ = lastError, let _ = lastContext else { return }
-        
+
         // 模拟重试逻辑
         let alert = UIAlertController(title: "重试中...", message: "正在重试路由操作", preferredStyle: .alert)
         present(alert, animated: true)
-        
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
             alert.dismiss(animated: true) {
                 // 模拟重试结果（随机成功或失败）
                 let success = Bool.random()
                 let resultTitle = success ? "重试成功" : "重试失败"
                 let resultMessage = success ? "路由操作已成功完成" : "重试仍然失败，请尝试其他解决方案"
-                
+
                 let resultAlert = UIAlertController(title: resultTitle, message: resultMessage, preferredStyle: .alert)
                 resultAlert.addAction(UIAlertAction(title: "确定", style: .default) { _ in
                     if success {
@@ -603,11 +603,11 @@ class RouteErrorViewController: UIViewController, Routable {
             }
         }
     }
-    
+
     @objc private func fallbackButtonTapped() {
         // 使用备用路由
         let fallbackRoute = "/ErrorHandlingModule/errorHandling"
-        
+
         Router.shared.navigate(to: fallbackRoute) { result in
             DispatchQueue.main.async {
                 switch result {
@@ -624,10 +624,10 @@ class RouteErrorViewController: UIViewController, Routable {
             }
         }
     }
-    
+
     @objc private func clearErrorButtonTapped() {
         clearError()
-        
+
         let alert = UIAlertController(title: "已清除", message: "错误信息已清除", preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "确定", style: .default))
         present(alert, animated: true)

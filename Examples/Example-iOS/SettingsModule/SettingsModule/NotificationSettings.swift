@@ -19,7 +19,7 @@ public struct NotificationSettings {
     public var updateEnabled: Bool
     public var maintenanceEnabled: Bool
     public var weekendMode: Bool
-    
+
     public init(pushEnabled: Bool = true, soundEnabled: Bool = true, badgeEnabled: Bool = true, messageNotification: Bool = true, systemNotification: Bool = true, messageEnabled: Bool = true, commentEnabled: Bool = true, likeEnabled: Bool = true, systemEnabled: Bool = true, updateEnabled: Bool = true, maintenanceEnabled: Bool = true, weekendMode: Bool = false) {
         self.pushEnabled = pushEnabled
         self.soundEnabled = soundEnabled

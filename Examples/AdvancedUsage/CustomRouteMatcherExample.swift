@@ -55,7 +55,7 @@ class UserProfileViewController: UIViewController, Routable {
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    
+
     func viewController(with parameters: RouterParameters?) -> UIViewController {
         let userId = parameters?.getValue(forKey: "param1") as? String
         return UserProfileViewController(userId: userId)
@@ -68,7 +68,7 @@ func setupCustomRouteMatcher() async {
 
     // 创建并注册自定义匹配器
     let regexMatcher = RegexRouteMatcher(pattern: "/user/(\\d+)/profile")
-    
+
     // 使用新的API注册路由
     do {
         try await router.registerRoute(matcher: regexMatcher, for: UserProfileViewController.self)
@@ -83,7 +83,7 @@ func setupCustomRouteMatcher() async {
 
     print("URL1 matches: \(await router.canNavigate(to: url1))") // true
     print("URL2 matches: \(await router.canNavigate(to: url2))") // false
-    
+
     // 执行导航
     Router.push(to: "/user/123/profile") { result in
         switch result {

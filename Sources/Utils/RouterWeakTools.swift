@@ -147,8 +147,16 @@ public class WeakArray<Element: AnyObject> {
     }
 
     /// 获取清理统计信息（用于调试和监控）
-    var cleanupStats: (totalItems: Int, nilItems: Int, nilRatio: Double, lastCleanup: Date, operationsSinceCleanup: Int) {
-        return (
+    struct CleanupStats {
+        let totalItems: Int
+        let nilItems: Int
+        let nilRatio: Double
+        let lastCleanup: Date
+        let operationsSinceCleanup: Int
+    }
+    
+    var cleanupStats: CleanupStats {
+        return CleanupStats(
             totalItems: items.count,
             nilItems: nilCount,
             nilRatio: nilRatio,

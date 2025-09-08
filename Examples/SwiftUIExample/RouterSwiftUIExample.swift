@@ -4,16 +4,16 @@ import RouterKit
 // SwiftUI视图控制器包装器
 class SwiftUIViewController<Content: View>: UIViewController, Routable {
     private let content: (RouterParameters?) -> Content
-    
+
     init(@ViewBuilder content: @escaping (RouterParameters?) -> Content) {
         self.content = content
         super.init(nibName: nil, bundle: nil)
     }
-    
+
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    
+
     func viewController(with parameters: RouterParameters?) -> UIViewController {
         return UIHostingController(rootView: content(parameters))
     }
@@ -140,7 +140,7 @@ struct RouterSwiftUIExampleApp: App {
                 try await router.registerRoute("/settings", for: SwiftUIViewController { _ in
                     SettingsView()
                 }.self)
-                
+
                 print("SwiftUI routes registered successfully")
             } catch {
                 print("Failed to register SwiftUI routes: \(error)")

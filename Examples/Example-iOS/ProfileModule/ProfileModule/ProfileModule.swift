@@ -20,12 +20,14 @@ public class ProfileModuleManager: ModuleProtocol, @unchecked Sendable {
 
     public func load(completion: @escaping (Bool) -> Void) {
         print("ProfileModule: 开始加载模块")
-        
+
         // 注册用户资料相关路由
-        Router.shared.register("profile", for: ProfileViewController.self)
-        Router.shared.register("profile/edit", for: ProfileEditViewController.self)
-        Router.shared.register("profile/avatar", for: AvatarUploadViewController.self)
-        
+        Task {
+            try await Router.shared.registerRoute("profile", for: ProfileViewController.self)
+            try await Router.shared.registerRoute("profile/edit", for: ProfileEditViewController.self)
+            try await Router.shared.registerRoute("profile/avatar", for: AvatarUploadViewController.self)
+        }
+
         self.isLoaded = true
         print("ProfileModule: 模块加载成功")
         completion(true)
@@ -45,7 +47,7 @@ public class ProfileModuleManager: ModuleProtocol, @unchecked Sendable {
         lastUsedTime = Date()
         print("ProfileModule: 模块已恢复")
     }
-    
+
     // MARK: - 用户数据模型
     public struct UserProfile {
         public var id: String
@@ -54,7 +56,7 @@ public class ProfileModuleManager: ModuleProtocol, @unchecked Sendable {
         public var avatar: String?
         public var bio: String?
         public var createdAt: Date
-        
+
         public init(id: String, username: String, email: String, avatar: String? = nil, bio: String? = nil, createdAt: Date = Date()) {
             self.id = id
             self.username = username
@@ -64,13 +66,13 @@ public class ProfileModuleManager: ModuleProtocol, @unchecked Sendable {
             self.createdAt = createdAt
         }
     }
-    
+
     // MARK: - 用户数据管理
     public class UserProfileManager {
         public static let shared = UserProfileManager()
-        
+
         private var currentProfile: UserProfile?
-        
+
         private init() {
             // 模拟用户数据
             currentProfile = UserProfile(
@@ -81,11 +83,11 @@ public class ProfileModuleManager: ModuleProtocol, @unchecked Sendable {
                 bio: "这是一个使用RouterKit的示例用户"
             )
         }
-        
+
         public func getCurrentProfile() -> UserProfile? {
             return currentProfile
         }
-        
+
         public func updateProfile(_ profile: UserProfile, completion: @escaping (Bool, Error?) -> Void) {
             // 模拟网络请求延迟
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
@@ -93,7 +95,7 @@ public class ProfileModuleManager: ModuleProtocol, @unchecked Sendable {
                 completion(true, nil)
             }
         }
-        
+
         public func uploadAvatar(_ image: UIImage, completion: @escaping (Bool, String?, Error?) -> Void) {
             // 模拟头像上传
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {

@@ -26,8 +26,8 @@ Task {
 }
 
 // 链式调用注册
-router.register("/home", for: HomeViewController.self)
-router.register("/user/:id", for: UserViewController.self)
+router.register("/home", for: HomeViewController.self).register()
+router.register("/user/:id", for: UserViewController.self).register()
 
 // 带权限的路由
 let permission = RoutePermission(requiredRoles: ["user"])

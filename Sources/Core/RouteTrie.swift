@@ -14,14 +14,14 @@ class RouteTrieNode {
     var regexChild: (node: RouteTrieNode, regex: NSRegularExpression, captureNames: [String])?
     var routePatterns: [(pattern: RoutePattern, priority: Int)] = []  // 存储模式和优先级
     var isEndOfPattern: Bool = false
-    
+
     // 性能优化：缓存参数名和捕获组名称
     var cachedParameterName: String?
     var cachedCaptureNames: [String]?
-    
+
     // 性能优化：按优先级排序的模式（最高优先级在前）
     private var _sortedPatterns: [(pattern: RoutePattern, priority: Int)]?
-    
+
     var sortedPatterns: [(pattern: RoutePattern, priority: Int)] {
         if let cached = _sortedPatterns {
             return cached
@@ -30,7 +30,7 @@ class RouteTrieNode {
         _sortedPatterns = sorted
         return sorted
     }
-    
+
     func invalidateCache() {
         _sortedPatterns = nil
         cachedParameterName = nil
@@ -90,7 +90,7 @@ public actor RouteTrie {
         // 插入新模式并按优先级排序（降序）
         currentNode.routePatterns.append((pattern: pattern, priority: priority))
         currentNode.routePatterns.sort { $0.priority > $1.priority }
-        
+
         // 缓存参数名和捕获组名称以提升性能
         if currentNode.cachedParameterName == nil {
             for component in pattern.components {
@@ -100,7 +100,7 @@ public actor RouteTrie {
                 }
             }
         }
-        
+
         if currentNode.cachedCaptureNames == nil {
             for component in pattern.components {
                 if case .regex(_, let captureNames) = component {
@@ -109,7 +109,7 @@ public actor RouteTrie {
                 }
             }
         }
-        
+
         // 使缓存失效以重新排序
         currentNode.invalidateCache()
     }
@@ -150,7 +150,7 @@ public actor RouteTrie {
         if let paramChild = node.parameterChild {
             // 使用缓存的参数名，如果没有则回退到原方法
             let paramName = paramChild.cachedParameterName ?? getParameterName(from: paramChild, componentIndex: componentIndex)
-            
+
             if let paramName = paramName {
                 var newParameters = parameters
                 newParameters[paramName] = currentComponent
@@ -241,26 +241,26 @@ public actor RouteTrie {
         collectPatterns(from: root, into: &patterns)
         return patterns
     }
-    
+
     private func collectPatterns(from node: RouteTrieNode, into patterns: inout [RoutePattern]) {
         // 收集当前节点的模式（使用缓存的排序结果）
         for (pattern, _) in node.sortedPatterns {
             patterns.append(pattern)
         }
-        
+
         // 递归收集子节点的模式
         for child in node.children.values {
             collectPatterns(from: child, into: &patterns)
         }
-        
+
         if let paramChild = node.parameterChild {
             collectPatterns(from: paramChild, into: &patterns)
         }
-        
+
         if let (regexChild, _, _) = node.regexChild {
             collectPatterns(from: regexChild, into: &patterns)
         }
-        
+
         if let wildcardChild = node.wildcardChild {
             collectPatterns(from: wildcardChild, into: &patterns)
         }

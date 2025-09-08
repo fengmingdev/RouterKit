@@ -9,12 +9,12 @@ import UIKit
 import RouterKit
 
 class ViewController: UIViewController, Routable {
-    
+
     // MARK: - Routable Protocol Implementation
     public static func viewController(with parameters: RouterParameters?) -> UIViewController? {
         return ViewController()
     }
-    
+
     public static func performAction(_ action: String, parameters: RouterParameters?, completion: @escaping RouterCompletion) {
         switch action {
         case "navigateToLogin":

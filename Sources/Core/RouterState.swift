@@ -1,598 +1,355 @@
 //
 //  RouterState.swift
-//  RouterKitDemo
+//  RouterKit
 //
-//  Created by fengming on 2025/8/7.
+//  Created by RouterKit on 2025/1/27.
 //
 
 import Combine
 import Foundation
 #if canImport(UIKit)
 import UIKit
+#elseif canImport(AppKit)
+import AppKit
 #endif
 
 /// 路由状态管理器
-/// 负责安全管理所有路由相关的共享状态和数据结构
-/// 通过Actor的特性自动保证线程安全，替代传统的锁机制
+/// 作为各个专门管理器的协调器，提供统一的接口
 @available(iOS 13.0, macOS 10.15, *)
 public actor RouterState {
-    // MARK: - 存储容器
-
-    /// 模块存储（使用弱引用包装避免循环引用）
-    /// 键: 模块名称，值: 弱引用包装的模块实例
-    private var modules: [String: Weak<AnyObject>] = [:]
-
-    /// 路由注册表项，包含可路由类型和优先级
-    private struct RouteEntry {
-        let routableType: Routable.Type
-        let priority: Int
-        let scheme: String
-    }
-
-    /// 路由注册表
-    /// 键: 路由模式（RoutePattern），值: 路由注册表项
-    private var routes: [RoutePattern: RouteEntry] = [:]
-
-    /// 按模块分组的路由模式
-    /// 键: 模块名称，值: 该模块下的所有路由模式数组
-    private var routesByModule: [String: [RoutePattern]] = [:]
-
-    /// 按命名空间分组的路由模式
-    /// 键: 命名空间名称，值: 该命名空间下的所有路由模式数组
-    private var routesByScheme: [String: [RoutePattern]] = [:]
-
-    /// 路由Trie树（用于优化路由匹配性能）
-    private var routeTrie = RouteTrie()
-
-    /// 路由权限配置
-    /// 键: 路由模式，值: 该路由的访问权限配置
-    private var routePermissions: [RoutePattern: RoutePermission] = [:]
-
-    /// 拦截器列表（已按优先级排序，降序）
-    private var interceptors: [RouterInterceptor] = []
-
-    #if canImport(UIKit)
-    /// 动画注册表
-    /// 键: 动画标识，值: 对应的转场动画实例
-    private var animations: [String: NavigationAnimatable] = [:]
-    #endif
-
-    /// 路由匹配器注册表
-    /// 键: 匹配器适用的模式前缀，值: 路由匹配器实例
-    /// 默认包含空字符串前缀的默认匹配器
-    private var matchers: [String: RouteMatcher] = ["": DefaultRouteMatcher()]
-
-    /// 高级路由缓存管理器
-    private let routeCache = RouterCache()
-
-    // MARK: - 配置参数
-
-    /// 最大重试次数（当路由失败且可重试时）
-    var maxRetryCount: Int = 3
-
-    /// 重试延迟时间（秒）
-    var retryDelay: TimeInterval = 0.5
-
-    /// 模块过期时间（秒）
-    /// 超过此时间未使用的模块将被自动清理
-    var moduleExpirationTime: TimeInterval = 300 // 5分钟
-
-    /// 是否启用日志输出
-    var enableLogging: Bool = true
-
-    /// 模块清理间隔时间（秒）
-    var cleanupInterval: TimeInterval = 60 // 1分钟
-
-    /// 路由缓存最大容量
-    var cacheSize: Int = 100
-
-    /// 是否启用参数清理（安全特性）
-    /// 启用后会对路由参数进行安全清理，防止恶意内容
-    var enableParameterSanitization: Bool = true
-
-    /// 权限验证器实例
-    /// 权限验证器
-    var permissionValidator: RoutePermissionValidator = DefaultPermissionValidator()
     
-    /// 关键模块列表
-    private var criticalModules: Set<String> = []
-
-    /// 当前导航任务
-    /// 用于标识正在进行的导航任务，避免并发冲突
-    #if swift(>=5.5) && canImport(_Concurrency)
-    var currentNavigationTask: Task<Void, Error>?
-    #endif
+    // MARK: - 管理器实例
     
-    /// 当前动画实例
-    #if canImport(UIKit)
-    var currentAnimation: NavigationAnimatable?
-    #endif
-
-    // MARK: - 模块管理
-
+    /// 模块管理器
+    private let moduleManager = RouterStateModuleManager()
+    
+    /// 路由管理器
+    private let routeManager = RouterStateRouteManager()
+    
+    /// 拦截器管理器
+    private let interceptorManager = RouterStateInterceptorManager()
+    
+    /// 配置管理器
+    private let configurationManager = RouterStateConfigurationManager()
+    
+    /// 缓存管理器
+    private let cacheManager = RouterStateCacheManager()
+    
+    // MARK: - 模块管理代理方法
+    
     /// 注册模块
-    /// - Parameter module: 要注册的模块实例（需遵循ModuleProtocol）
-    func registerModule(_ module: any ModuleProtocol) {
-        let weakWrapper = Weak(value: module as AnyObject)
-        modules[module.moduleName] = weakWrapper
+    /// - Parameter module: 要注册的模块实例
+    public func registerModule(_ module: any ModuleProtocol) async {
+        await moduleManager.registerModule(module)
     }
-
+    
     /// 卸载模块
     /// - Parameter moduleName: 模块名称
-    /// - Returns: 被卸载的模块实例（如果存在）
-    func unregisterModule(_ moduleName: String) -> (any ModuleProtocol)? {
-        guard let weakWrapper = modules[moduleName],
-              let module = weakWrapper.value as? any ModuleProtocol else {
-            return nil
+    /// - Returns: 被卸载的模块实例
+    func unregisterModule(_ moduleName: String) async -> (any ModuleProtocol)? {
+        let module = await moduleManager.unregisterModule(moduleName)
+        if module != nil {
+            await routeManager.cleanupRoutes(for: moduleName)
+            await cacheManager.clearCacheForModule(moduleName)
         }
-
-        modules.removeValue(forKey: moduleName)
         return module
     }
-
+    
     /// 检查模块是否已加载
     /// - Parameter moduleName: 模块名称
-    /// - Returns: 模块是否已加载（弱引用仍然有效）
-    func isModuleLoaded(_ moduleName: String) -> Bool {
-        guard let weakWrapper = modules[moduleName] else {
-            return false
-        }
-        return weakWrapper.value != nil
+    /// - Returns: 模块是否已加载
+    func isModuleLoaded(_ moduleName: String) async -> Bool {
+        return await moduleManager.isModuleLoaded(moduleName)
     }
-
+    
     /// 获取模块实例
     /// - Parameter name: 模块名称
-    /// - Returns: 模块实例（可选，弱引用可能已失效）
-    func getModule(_ name: String) -> (any ModuleProtocol)? {
-        guard let weakWrapper = modules[name] else {
-            return nil
-        }
-        return weakWrapper.value as? any ModuleProtocol
+    /// - Returns: 模块实例
+    func getModule(_ name: String) async -> (any ModuleProtocol)? {
+        return await moduleManager.getModule(name)
     }
-
+    
     /// 获取指定类型的模块实例
-    /// - Parameter type: 模块类型（需遵循ModuleProtocol）
-    /// - Returns: 模块实例（可选）
-    func getModule<T: ModuleProtocol>(_ type: T.Type) -> T? {
-        let key = String(describing: type)
-        return modules[key]?.value as? T
+    /// - Parameter type: 模块类型
+    /// - Returns: 模块实例
+    func getModule<T: ModuleProtocol>(_ type: T.Type) async -> T? {
+        return await moduleManager.getModule(type)
     }
-
-    // MARK: - 路由管理
-
-    /// 注册路由模式
-    /// - Parameters:
-    ///   - routePattern: 路由模式
-    ///   - routableType: 对应的可路由类型
-    ///   - permission: 路由权限配置（可选）
-    ///   - priority: 路由优先级，数值越大优先级越高
-    ///   - scheme: 路由命名空间
-    /// - Throws: 当路由已存在时抛出错误
-    func registerRoute(_ routePattern: RoutePattern, routableType: Routable.Type, permission: RoutePermission?, priority: Int, scheme: String) async throws {
-        if routes[routePattern] != nil {
-            throw RouterError.routeAlreadyExists(routePattern.pattern)
-        }
-
-        let routeEntry = RouteEntry(routableType: routableType, priority: priority, scheme: scheme)
-        routes[routePattern] = routeEntry
-        routesByModule[routePattern.moduleName, default: []].append(routePattern)
-        routesByScheme[scheme, default: []].append(routePattern)
-        await routeTrie.insert(routePattern)
-
-        if let permission = permission {
-            routePermissions[routePattern] = permission
-        }
-    }
-
-    /// 注册动态路由（无需模块预先注册）
-    /// - Parameters:
-    ///   - routePattern: 路由模式
-    ///   - routableType: 对应的可路由类型
-    ///   - permission: 路由权限配置（可选）
-    ///   - priority: 路由优先级，数值越大优先级越高
-    ///   - scheme: 路由命名空间
-    /// - Throws: 当路由已存在时抛出错误
-    func registerDynamicRoute(_ routePattern: RoutePattern, routableType: Routable.Type, permission: RoutePermission?, priority: Int, scheme: String) async throws {
-        if routes[routePattern] != nil {
-            throw RouterError.routeAlreadyExists(routePattern.pattern)
-        }
-
-        let routeEntry = RouteEntry(routableType: routableType, priority: priority, scheme: scheme)
-        routes[routePattern] = routeEntry
-        // 使用路由模式中的模块名
-        routesByModule[routePattern.moduleName, default: []].append(routePattern)
-        routesByScheme[scheme, default: []].append(routePattern)
-        await routeTrie.insert(routePattern)
-
-        if let permission = permission {
-            routePermissions[routePattern] = permission
-        }
-    }
-
-    /// 清理指定命名空间下的所有路由
-    /// - Parameter scheme: 命名空间名称
-    func cleanupRoutes(forScheme scheme: String) async {
-        guard let schemeRoutes = routesByScheme[scheme] else {
-            return
-        }
-
-        for routePattern in schemeRoutes {
-            routes.removeValue(forKey: routePattern)
-            routePermissions.removeValue(forKey: routePattern)
-            await routeTrie.remove(routePattern)
-
-            // 从routesByModule中移除
-            for (moduleName, moduleRoutes) in routesByModule {
-                var updatedRoutes = moduleRoutes
-                updatedRoutes.removeAll { $0 == routePattern }
-                if updatedRoutes.isEmpty {
-                    routesByModule.removeValue(forKey: moduleName)
-                } else {
-                    routesByModule[moduleName] = updatedRoutes
-                }
-            }
-        }
-
-        routesByScheme.removeValue(forKey: scheme)
-        // 清理相关缓存（通过清空整个缓存，因为无法精确过滤）
-        await routeCache.clearAll()
-    }
-
-    /// 移除动态路由
-    /// - Parameter routePattern: 要移除的路由模式
-    /// - Throws: 当路由不存在时抛出错误
-    func unregisterDynamicRoute(_ routePattern: RoutePattern) async throws {
-        guard routes[routePattern] != nil else {
-            throw RouterError.routeNotFound(routePattern.pattern)
-        }
-
-        guard let routeEntry = routes[routePattern] else {
-            throw RouterError.routeNotFound(routePattern.pattern)
-        }
-
-        routes.removeValue(forKey: routePattern)
-        let dynamicModuleName = "__DynamicRoutes__"
-
-        // 从routesByModule中移除
-        if var moduleRoutes = routesByModule[dynamicModuleName] {
-            moduleRoutes.removeAll { $0 == routePattern }
-            if moduleRoutes.isEmpty {
-                routesByModule.removeValue(forKey: dynamicModuleName)
-            } else {
-                routesByModule[dynamicModuleName] = moduleRoutes
-            }
-        }
-
-        // 从routesByScheme中移除
-        if var schemeRoutes = routesByScheme[routeEntry.scheme] {
-            schemeRoutes.removeAll { $0 == routePattern }
-            if schemeRoutes.isEmpty {
-                routesByScheme.removeValue(forKey: routeEntry.scheme)
-            } else {
-                routesByScheme[routeEntry.scheme] = schemeRoutes
-            }
-        }
-
-        await routeTrie.remove(routePattern)
-        routePermissions.removeValue(forKey: routePattern)
-        // 清理相关缓存（通过清空整个缓存，因为无法精确过滤）
-        await routeCache.clearAll()
-    }
-
-    /// 获取指定模块下的所有路由模式
-    /// - Parameter moduleName: 模块名称
-    /// - Returns: 路由模式数组（可能为空）
-    func getRoutesByModule(_ moduleName: String) -> [RoutePattern] {
-        return routesByModule[moduleName] ?? []
-    }
-
-    /// 获取路由模式对应的可路由类型
-    /// - Parameter pattern: 路由模式
-    /// - Returns: 可路由类型（可选）
-    func getRoutableType(for pattern: RoutePattern) -> Routable.Type? {
-        return routes[pattern]?.routableType
-    }
-
-    // MARK: - 拦截器管理
-
-    /// 添加拦截器（自动按优先级排序）
-    /// - Parameter interceptor: 拦截器实例
-    func addInterceptor(_ interceptor: RouterInterceptor) {
-        interceptors.append(interceptor)
-        // 按优先级降序排序（优先级值越大越先执行）
-        interceptors.sort { $0.priority.rawValue > $1.priority.rawValue }
-    }
-
-    /// 移除拦截器
-    /// - Parameter interceptor: 要移除的拦截器实例（引用比较）
-    func removeInterceptor(_ interceptor: RouterInterceptor) {
-        interceptors.removeAll { $0 === interceptor }
-    }
-
-    /// 获取所有拦截器（按优先级排序）
-    /// - Returns: 拦截器数组
-    func getInterceptors() -> [RouterInterceptor] {
-        return interceptors
-    }
-
-    // MARK: - 动画管理
-
-    #if canImport(UIKit)
-    /// 注册转场动画
-    /// - Parameter animation: 动画实例（需遵循NavigationAnimatable）
-    func registerAnimation(_ animation: NavigationAnimatable) {
-        animations[animation.identifier] = animation
-    }
-
-    /// 移除转场动画
-    /// - Parameter identifier: 动画标识
-    func unregisterAnimation(_ identifier: String) {
-        animations.removeValue(forKey: identifier)
-    }
-
-    /// 获取转场动画
-    /// - Parameter identifier: 动画标识
-    /// - Returns: 动画实例（可选）
-    func getAnimation(_ identifier: String) -> NavigationAnimatable? {
-        return animations[identifier]
-    }
-    #endif
-
-    // MARK: - 匹配器管理
-
-    /// 注册自定义路由匹配器
-    /// - Parameters:
-    ///   - matcher: 匹配器实例
-    ///   - patternPrefix: 匹配器适用的路由模式前缀
-    func registerMatcher(_ matcher: RouteMatcher, for patternPrefix: String) {
-        matchers[patternPrefix] = matcher
-    }
-
-    /// 查找适合指定路由模式的匹配器
-    /// - Parameter pattern: 路由模式
-    /// - Returns: 最匹配的路由匹配器
-    func findMatcher(for pattern: String) -> RouteMatcher {
-        // 按前缀长度降序查找，优先匹配最长前缀
-        let prefixes = matchers.keys.sorted { $0.count > $1.count }
-        for prefix in prefixes {
-            if pattern.hasPrefix(prefix) {
-                return matchers[prefix] ?? matchers[""] ?? DefaultRouteMatcher()
-            }
-        }
-        // 未找到匹配的前缀时使用默认匹配器
-        return matchers[""] ?? DefaultRouteMatcher()
-    }
-    /// 获取所有已注册的路由
-    /// - Returns: 路由模式到可路由类型的字典
-    public func getAllRoutes() -> [RoutePattern: Routable.Type] {
-        return routes.mapValues { $0.routableType }
-    }
-    // MARK: - 路由匹配与缓存
-
-    /// 匹配URL对应的路由
-    /// - Parameter url: 目标URL
-    /// - Returns: 匹配结果元组(路由模式, 可路由类型, 参数)（可选）
-    func matchRoute(_ url: URL) async -> (pattern: RoutePattern, type: Routable.Type, parameters: RouterParameters)? {
-        let urlString = url.absoluteString
-
-        // 先检查高级缓存
-        if let cachedResult = await routeCache.get(urlString) {
-            return (cachedResult.pattern, cachedResult.type, cachedResult.parameters)
-        }
-
-        // 解析URL路径
-        let path = url.path
-        let pathComponents = path.components(separatedBy: "/").filter { !$0.isEmpty }
-
-        // 使用优化的Trie树查找匹配的路由
-        guard let (pattern, parameters) = await routeTrie.find(pathComponents),
-              let routeEntry = routes[pattern] else {
-            return nil
-        }
-        let routableType = routeEntry.routableType
-        let scheme = routeEntry.scheme
-
-        // 参数清理（如果启用）
-        var sanitizedParameters = parameters
-        if enableParameterSanitization {
-            sanitizedParameters = RouterSecurity.shared.sanitizeParameters(parameters) ?? parameters
-        }
-
-        // 缓存匹配结果到高级缓存
-        await routeCache.set(urlString, pattern: pattern, routableType: routableType, parameters: sanitizedParameters, scheme: scheme)
-
-        return (pattern, routableType, sanitizedParameters)
-    }
-
-    /// 清理路由缓存（清理过期项和统计信息）
-    func cleanupRouteCache() async {
-        await routeCache.cleanupExpiredItems()
-    }
-
-    /// 获取缓存统计信息
-    func getCacheStatistics() async -> (hitCount: Int, missCount: Int, hitRate: Double, cacheSize: Int, hotCacheSize: Int, precompiledCacheSize: Int) {
-        return await routeCache.getStatistics()
-    }
-
-    /// 重置缓存统计信息
-    func resetCacheStatistics() async {
-        await routeCache.resetStatistics()
-    }
-
-    /// 清空所有缓存
-    func clearRouteCache() async {
-        await routeCache.clearAll()
-    }
-
-    /// 设置路由缓存最大大小
-    func setRouteCacheMaxSize(_ size: Int) async {
-        await routeCache.setMaxCacheSize(size)
-    }
-
-    /// 设置热点缓存大小
-    func setHotCacheSize(_ size: Int) async {
-        await routeCache.setHotCacheSize(size)
-    }
-
-    /// 设置热点阈值
-    func setHotThreshold(_ threshold: Int) async {
-        await routeCache.setHotThreshold(threshold)
-    }
-
-    /// 设置缓存过期时间
-    func setCacheExpirationTime(_ time: TimeInterval) async {
-        await routeCache.setCacheExpirationTime(time)
-    }
-
-    // MARK: - 模块清理辅助
-
-    /// 清理指定模块的所有关联路由
-    /// - Parameter moduleName: 模块名称
-    func cleanupRoutes(for moduleName: String) async {
-        if let moduleRoutes = routesByModule[moduleName] {
-            for route in moduleRoutes {
-                routes.removeValue(forKey: route)
-                await routeTrie.remove(route)
-                routePermissions.removeValue(forKey: route)
-            }
-        }
-        routesByModule.removeValue(forKey: moduleName)
-        // 清理与该模块相关的缓存（通过清空整个缓存，因为无法精确过滤）
-        await routeCache.clearAll()
-    }
-
-    /// 获取所有过期模块的名称
-    /// - Parameter currentTime: 当前时间
-    /// - Returns: 过期模块名称数组
-    func getExpiredModules(currentTime: Date) -> [String] {
-        return modules.compactMap { name, weakWrapper in
-            guard let module = weakWrapper.value as? any ModuleProtocol else {
-                // 弱引用已失效的模块直接视为过期
-                return name
-            }
-
-            // 检查是否超过过期时间
-            if currentTime.timeIntervalSince(module.lastUsedTime) > moduleExpirationTime {
-                return name
-            }
-            return nil
-        }
-    }
-
-    // MARK: - 权限管理
-
-    /// 获取指定路由的权限配置
-    /// - Parameter routePattern: 路由模式
-    /// - Returns: 权限配置（可选）
-    func getRoutePermission(for routePattern: RoutePattern) -> RoutePermission? {
-        return routePermissions[routePattern]
-    }
-
-    // MARK: - 状态重置（主要用于测试）
-
-    /// 重置所有状态数据
-    func reset() async {
-        modules.removeAll()
-        routes.removeAll()
-        routesByModule.removeAll()
-        routeTrie = RouteTrie()
-        routePermissions.removeAll()
-        await routeCache.clearAll()
-        interceptors.removeAll()
-        #if canImport(UIKit)
-        animations.removeAll()
-        #endif
-        // 重置配置参数为默认值
-        maxRetryCount = 3
-        retryDelay = 0.5
-        moduleExpirationTime = 300
-        enableLogging = true
-        cleanupInterval = 60
-        cacheSize = 100
-        enableParameterSanitization = true
-        permissionValidator = DefaultPermissionValidator()
-    }
-
-    // MARK: - 配置参数访问器
-
-    /// 获取最大重试次数
-    func getMaxRetryCount() -> Int { maxRetryCount }
-    /// 设置最大重试次数
-    func setMaxRetryCount(_ value: Int) { maxRetryCount = value }
-
-    /// 获取重试延迟时间（秒）
-    func getRetryDelay() -> TimeInterval { retryDelay }
-    /// 设置重试延迟时间（秒）
-    func setRetryDelay(_ value: TimeInterval) { retryDelay = value }
-
-    /// 获取模块过期时间（秒）
-    func getModuleExpirationTime() -> TimeInterval { moduleExpirationTime }
-    /// 设置模块过期时间（秒）
-    func setModuleExpirationTime(_ value: TimeInterval) { moduleExpirationTime = value }
-
-    /// 获取日志启用状态
-    func getEnableLogging() -> Bool { enableLogging }
-    /// 设置日志启用状态
-    func setEnableLogging(_ value: Bool) { enableLogging = value }
-
-    /// 获取清理间隔时间（秒）
-    func getCleanupInterval() -> TimeInterval { cleanupInterval }
-    /// 设置清理间隔时间（秒）
-    func setCleanupInterval(_ value: TimeInterval) { cleanupInterval = value }
-
-    /// 获取路由缓存大小
-    func getCacheSize() -> Int { cacheSize }
-    /// 设置路由缓存大小
-    func setCacheSize(_ value: Int) { cacheSize = value }
-
-    /// 获取参数清理启用状态
-    func getEnableParameterSanitization() -> Bool { enableParameterSanitization }
-    /// 设置参数清理启用状态
-    func setEnableParameterSanitization(_ value: Bool) { enableParameterSanitization = value }
-
-    /// 设置权限验证器
-    func setPermissionValidator(_ validator: RoutePermissionValidator) {
-        permissionValidator = validator
-    }
-    /// 获取当前权限验证器
-    func getPermissionValidator() -> RoutePermissionValidator {
-        return permissionValidator
-    }
-
-    // MARK: - 导航任务管理
-
-    /// 获取当前导航任务
-    #if swift(>=5.5) && canImport(_Concurrency)
-    @available(iOS 13.0, macOS 10.15, *)
-    func getCurrentNavigationTask() -> Task<Void, Error>? {
-        return currentNavigationTask
-    }
-    
-    @available(iOS 13.0, macOS 10.15, *)
-    func setCurrentNavigationTask(_ task: Task<Void, Error>?) {
-        currentNavigationTask = task
-    }
-    #endif
-    
-    #if canImport(UIKit)
-    /// 设置当前动画
-    func setCurrentAnimation(_ animation: NavigationAnimatable?) {
-        currentAnimation = animation
-    }
-    
-    /// 获取当前动画
-    func getCurrentAnimation() -> NavigationAnimatable? {
-        return currentAnimation
-    }
-    #endif
     
     /// 获取所有模块
-    func getModules() -> [String: Weak<AnyObject>] {
-        return modules
+    func getModules() async -> [String: Weak<AnyObject>] {
+        return await moduleManager.getModules()
     }
     
     /// 获取关键模块列表
-    func getCriticalModules() -> Set<String> {
-        return criticalModules
+    func getCriticalModules() async -> Set<String> {
+        return await moduleManager.getCriticalModules()
+    }
+    
+    // MARK: - 路由管理代理方法
+    
+    /// 注册路由模式
+    func registerRoute(_ routePattern: RoutePattern, routableType: Routable.Type, permission: RoutePermission?, priority: Int, scheme: String) async throws {
+        try await routeManager.registerRoute(routePattern, routableType: routableType, permission: permission, priority: priority, scheme: scheme)
+    }
+    
+    /// 注册动态路由
+    func registerDynamicRoute(_ routePattern: RoutePattern, routableType: Routable.Type, permission: RoutePermission?, priority: Int, scheme: String) async throws {
+        try await routeManager.registerDynamicRoute(routePattern, routableType: routableType, permission: permission, priority: priority, scheme: scheme)
+    }
+    
+    /// 卸载动态路由
+    func unregisterDynamicRoute(_ routePattern: RoutePattern) async throws {
+        try await routeManager.unregisterDynamicRoute(routePattern)
+    }
+    
+    /// 清理指定命名空间的所有路由
+    func cleanupRoutes(forScheme scheme: String) async {
+        await routeManager.cleanupRoutes(forScheme: scheme)
+    }
+    
+    /// 获取指定模块的所有路由
+    func getRoutesByModule(_ moduleName: String) async -> [RoutePattern] {
+        return await routeManager.getRoutesByModule(moduleName)
+    }
+    
+    /// 获取指定路由模式对应的可路由类型
+    func getRoutableType(for pattern: RoutePattern) async -> Routable.Type? {
+        return await routeManager.getRoutableType(for: pattern)
+    }
+    
+    /// 获取所有已注册的路由
+    public func getAllRoutes() async -> [RoutePattern: Routable.Type] {
+        return await routeManager.getAllRoutes()
+    }
+    
+    /// 匹配路由
+    func matchRoute(_ url: URL) async -> (pattern: RoutePattern, type: Routable.Type, parameters: RouterParameters)? {
+        let enableParameterSanitization = await configurationManager.getEnableParameterSanitization()
+        return await cacheManager.matchRoute(url, enableParameterSanitization: enableParameterSanitization, routeManager: routeManager)
+    }
+    
+    /// 获取路由权限
+    func getRoutePermission(for routePattern: RoutePattern) async -> RoutePermission? {
+        return await routeManager.getRoutePermission(for: routePattern)
+    }
+    
+    /// 注册路由匹配器
+    func registerMatcher(_ matcher: RouteMatcher, for patternPrefix: String) async {
+        await routeManager.registerMatcher(matcher, for: patternPrefix)
+    }
+    
+    /// 查找适用的路由匹配器
+    func findMatcher(for pattern: String) async -> RouteMatcher {
+        return await routeManager.findMatcher(for: pattern)
+    }
+    
+    // MARK: - 拦截器管理代理方法
+    
+    /// 添加路由拦截器
+    func addInterceptor(_ interceptor: RouterInterceptor) async {
+        await interceptorManager.addInterceptor(interceptor)
+    }
+    
+    /// 移除路由拦截器
+    func removeInterceptor(_ interceptor: RouterInterceptor) async {
+        await interceptorManager.removeInterceptor(interceptor)
+    }
+    
+    /// 获取所有拦截器
+    func getInterceptors() async -> [RouterInterceptor] {
+        return await interceptorManager.getInterceptors()
+    }
+    
+    #if canImport(UIKit)
+    /// 注册导航动画
+    func registerAnimation(_ animation: NavigationAnimatable) async {
+        await interceptorManager.registerAnimation(animation)
+    }
+    
+    /// 卸载导航动画
+    func unregisterAnimation(_ identifier: String) async {
+        await interceptorManager.unregisterAnimation(identifier)
+    }
+    
+    /// 获取指定的导航动画
+    func getAnimation(_ identifier: String) async -> NavigationAnimatable? {
+        return await interceptorManager.getAnimation(identifier)
+    }
+    
+    /// 设置当前动画
+    func setCurrentAnimation(_ animation: NavigationAnimatable?) async {
+        await interceptorManager.setCurrentAnimation(animation)
+    }
+    #endif
+    
+    #if canImport(UIKit)
+    /// 获取当前动画
+    func getCurrentAnimation() async -> NavigationAnimatable? {
+        return await interceptorManager.getCurrentAnimation()
+    }
+    #endif
+    
+    // MARK: - 缓存管理代理方法
+    
+    /// 清理路由缓存
+    func cleanupRouteCache() async {
+        await cacheManager.cleanupRouteCache()
+    }
+    
+    /// 获取缓存统计信息
+    func getCacheStatistics() async -> RouterCacheStatistics {
+        return await cacheManager.getCacheStatistics()
+    }
+    
+    /// 重置缓存统计信息
+    func resetCacheStatistics() async {
+        await cacheManager.resetCacheStatistics()
+    }
+    
+    /// 清空所有缓存
+    func clearRouteCache() async {
+        await cacheManager.clearRouteCache()
+    }
+    
+    /// 设置路由缓存最大大小
+    func setRouteCacheMaxSize(_ size: Int) async {
+        await cacheManager.setRouteCacheMaxSize(size)
+    }
+    
+    /// 设置热点缓存大小
+    func setHotCacheSize(_ size: Int) async {
+        await cacheManager.setHotCacheSize(size)
+    }
+    
+    /// 设置热点阈值
+    func setHotThreshold(_ threshold: Int) async {
+        await cacheManager.setHotThreshold(threshold)
+    }
+    
+    /// 设置缓存过期时间
+    func setCacheExpirationTime(_ time: TimeInterval) async {
+        await cacheManager.setCacheExpirationTime(time)
+    }
+    
+    // MARK: - 配置管理代理方法
+    
+    /// 获取最大重试次数
+    func getMaxRetryCount() async -> Int {
+        return await configurationManager.getMaxRetryCount()
+    }
+    
+    /// 设置最大重试次数
+    func setMaxRetryCount(_ value: Int) async {
+        await configurationManager.setMaxRetryCount(value)
+    }
+    
+    /// 获取重试延迟时间
+    func getRetryDelay() async -> TimeInterval {
+        return await configurationManager.getRetryDelay()
+    }
+    
+    /// 设置重试延迟时间
+    func setRetryDelay(_ value: TimeInterval) async {
+        await configurationManager.setRetryDelay(value)
+    }
+    
+    /// 获取模块过期时间
+    func getModuleExpirationTime() async -> TimeInterval {
+        return await configurationManager.getModuleExpirationTime()
+    }
+    
+    /// 设置模块过期时间
+    func setModuleExpirationTime(_ value: TimeInterval) async {
+        await configurationManager.setModuleExpirationTime(value)
+        await moduleManager.setModuleExpirationTime(value)
+    }
+    
+    /// 获取日志启用状态
+    func getEnableLogging() async -> Bool {
+        return await configurationManager.getEnableLogging()
+    }
+    
+    /// 设置日志启用状态
+    func setEnableLogging(_ value: Bool) async {
+        await configurationManager.setEnableLogging(value)
+    }
+    
+    /// 获取清理间隔时间
+    func getCleanupInterval() async -> TimeInterval {
+        return await configurationManager.getCleanupInterval()
+    }
+    
+    /// 设置清理间隔时间
+    func setCleanupInterval(_ value: TimeInterval) async {
+        await configurationManager.setCleanupInterval(value)
+    }
+    
+    /// 获取路由缓存大小
+    func getCacheSize() async -> Int {
+        return await configurationManager.getCacheSize()
+    }
+    
+    /// 设置路由缓存大小
+    func setCacheSize(_ value: Int) async {
+        await configurationManager.setCacheSize(value)
+    }
+    
+    /// 获取参数清理启用状态
+    func getEnableParameterSanitization() async -> Bool {
+        return await configurationManager.getEnableParameterSanitization()
+    }
+    
+    /// 设置参数清理启用状态
+    func setEnableParameterSanitization(_ value: Bool) async {
+        await configurationManager.setEnableParameterSanitization(value)
+    }
+    
+    /// 设置权限验证器
+    func setPermissionValidator(_ validator: RoutePermissionValidator) async {
+        await configurationManager.setPermissionValidator(validator)
+    }
+    
+    /// 获取当前权限验证器
+    func getPermissionValidator() async -> RoutePermissionValidator {
+        return await configurationManager.getPermissionValidator()
+    }
+    
+    #if swift(>=5.5) && canImport(_Concurrency)
+    /// 获取当前导航任务
+    @available(iOS 13.0, macOS 10.15, *)
+    func getCurrentNavigationTask() async -> Task<Void, Error>? {
+        return await configurationManager.getCurrentNavigationTask()
+    }
+    
+    /// 设置当前导航任务
+    @available(iOS 13.0, macOS 10.15, *)
+    func setCurrentNavigationTask(_ task: Task<Void, Error>?) async {
+        await configurationManager.setCurrentNavigationTask(task)
+    }
+    #endif
+    
+    // MARK: - 模块清理辅助
+    
+    /// 获取所有过期模块的名称
+    func getExpiredModules(currentTime: Date) async -> [String] {
+        return await moduleManager.getExpiredModules(currentTime: currentTime)
+    }
+    
+    /// 清理指定模块的所有关联路由
+    func cleanupRoutes(for moduleName: String) async {
+        await routeManager.cleanupRoutes(for: moduleName)
+        await cacheManager.clearCacheForModule(moduleName)
+    }
+    
+    // MARK: - 状态重置
+    
+    /// 重置所有状态数据
+    func reset() async {
+        await moduleManager.reset()
+        await routeManager.reset()
+        await interceptorManager.reset()
+        await configurationManager.reset()
+        await cacheManager.reset()
     }
 }

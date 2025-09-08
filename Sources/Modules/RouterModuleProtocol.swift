@@ -9,7 +9,7 @@ import Foundation
 
 // MARK: - 模块依赖结构
 /// 定义模块之间的依赖关系
-public struct ModuleDependency {
+public struct ModuleDependency: Sendable {
     let moduleName: String  // 依赖的模块名称
     let isRequired: Bool    // 是否为必需依赖（true: 缺少则无法运行；false: 可选）
 }

@@ -35,7 +35,7 @@ dependencies: [
 3. Add the following line to your Podfile:
 
 ```ruby
-pod 'RouterKit', '~> 1.0'
+pod 'RouterKit-Swift', '~> 1.0'
 ```
 
 4. Run `pod install` to install the dependency

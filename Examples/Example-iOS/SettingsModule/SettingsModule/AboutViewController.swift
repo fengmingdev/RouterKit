@@ -9,12 +9,12 @@ import UIKit
 import RouterKit
 
 public class AboutViewController: UIViewController, Routable {
-    
+
     // MARK: - Routable Protocol Implementation
     public static func viewController(with parameters: RouterParameters?) -> UIViewController? {
         return AboutViewController()
     }
-    
+
     public static func performAction(_ action: String, parameters: RouterParameters?, completion: @escaping RouterCompletion) {
         switch action {
         case "getAppInfo":
@@ -32,10 +32,10 @@ public class AboutViewController: UIViewController, Routable {
             completion(.failure(RouterError.actionNotFound(action)))
         }
     }
-    
+
     private let scrollView = UIScrollView()
     private let contentView = UIView()
-    
+
     // 应用信息
     private let appInfo = [
         ("应用名称", "RouterKit Example"),
@@ -44,7 +44,7 @@ public class AboutViewController: UIViewController, Routable {
         ("RouterKit版本", "2.0.0"),
         ("最后更新", "2025年1月23日")
     ]
-    
+
     // 开发团队信息
     private let teamInfo = [
         ("开发者", "RouterKit Team"),
@@ -52,7 +52,7 @@ public class AboutViewController: UIViewController, Routable {
         ("官方网站", "https://routerkit.com"),
         ("GitHub", "https://github.com/routerkit/RouterKit")
     ]
-    
+
     // 法律信息
     private let legalInfo = [
         ("用户协议", "查看用户服务协议"),
@@ -60,44 +60,44 @@ public class AboutViewController: UIViewController, Routable {
         ("开源许可", "查看开源组件许可证"),
         ("版权声明", "© 2025 RouterKit Team")
     ]
-    
+
     public override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
     }
-    
+
     private func setupUI() {
         view.backgroundColor = .systemBackground
         title = "关于应用"
-        
+
         // 配置滚动视图
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.showsVerticalScrollIndicator = true
         scrollView.alwaysBounceVertical = true
         view.addSubview(scrollView)
-        
+
         contentView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.addSubview(contentView)
-        
+
         NSLayoutConstraint.activate([
             scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            
+
             contentView.topAnchor.constraint(equalTo: scrollView.topAnchor),
             contentView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
             contentView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
             contentView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
             contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor)
         ])
-        
+
         setupContent()
     }
-    
+
     private func setupContent() {
         var lastView: UIView?
-        
+
         // 应用图标和名称
         let headerView = createHeaderView()
         contentView.addSubview(headerView)
@@ -107,7 +107,7 @@ public class AboutViewController: UIViewController, Routable {
             headerView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20)
         ])
         lastView = headerView
-        
+
         // 应用信息部分
         let appInfoView = createSectionView(title: "应用信息", items: appInfo, style: .info)
         contentView.addSubview(appInfoView)
@@ -117,7 +117,7 @@ public class AboutViewController: UIViewController, Routable {
             appInfoView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20)
         ])
         lastView = appInfoView
-        
+
         // 开发团队部分
         let teamInfoView = createSectionView(title: "开发团队", items: teamInfo, style: .contact)
         contentView.addSubview(teamInfoView)
@@ -127,7 +127,7 @@ public class AboutViewController: UIViewController, Routable {
             teamInfoView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20)
         ])
         lastView = teamInfoView
-        
+
         // 法律信息部分
         let legalInfoView = createSectionView(title: "法律信息", items: legalInfo, style: .legal)
         contentView.addSubview(legalInfoView)
@@ -137,7 +137,7 @@ public class AboutViewController: UIViewController, Routable {
             legalInfoView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20)
         ])
         lastView = legalInfoView
-        
+
         // 感谢信息
         let thanksView = createThanksView()
         contentView.addSubview(thanksView)
@@ -148,11 +148,11 @@ public class AboutViewController: UIViewController, Routable {
             thanksView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -30)
         ])
     }
-    
+
     private func createHeaderView() -> UIView {
         let headerView = UIView()
         headerView.translatesAutoresizingMaskIntoConstraints = false
-        
+
         // 应用图标
         let iconImageView = UIImageView()
         iconImageView.translatesAutoresizingMaskIntoConstraints = false
@@ -163,7 +163,7 @@ public class AboutViewController: UIViewController, Routable {
         iconImageView.layer.masksToBounds = true
         iconImageView.backgroundColor = .systemGray6
         headerView.addSubview(iconImageView)
-        
+
         // 应用名称
         let appNameLabel = UILabel()
         appNameLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -172,7 +172,7 @@ public class AboutViewController: UIViewController, Routable {
         appNameLabel.textColor = .label
         appNameLabel.textAlignment = .center
         headerView.addSubview(appNameLabel)
-        
+
         // 应用描述
         let descriptionLabel = UILabel()
         descriptionLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -182,29 +182,29 @@ public class AboutViewController: UIViewController, Routable {
         descriptionLabel.textAlignment = .center
         descriptionLabel.numberOfLines = 0
         headerView.addSubview(descriptionLabel)
-        
+
         NSLayoutConstraint.activate([
             // 图标约束
             iconImageView.topAnchor.constraint(equalTo: headerView.topAnchor),
             iconImageView.centerXAnchor.constraint(equalTo: headerView.centerXAnchor),
             iconImageView.widthAnchor.constraint(equalToConstant: 80),
             iconImageView.heightAnchor.constraint(equalToConstant: 80),
-            
+
             // 应用名称约束
             appNameLabel.topAnchor.constraint(equalTo: iconImageView.bottomAnchor, constant: 16),
             appNameLabel.leadingAnchor.constraint(equalTo: headerView.leadingAnchor),
             appNameLabel.trailingAnchor.constraint(equalTo: headerView.trailingAnchor),
-            
+
             // 描述约束
             descriptionLabel.topAnchor.constraint(equalTo: appNameLabel.bottomAnchor, constant: 8),
             descriptionLabel.leadingAnchor.constraint(equalTo: headerView.leadingAnchor),
             descriptionLabel.trailingAnchor.constraint(equalTo: headerView.trailingAnchor),
             descriptionLabel.bottomAnchor.constraint(equalTo: headerView.bottomAnchor)
         ])
-        
+
         return headerView
     }
-    
+
     private func createSectionView(title: String, items: [(String, String)], style: SectionStyle) -> UIView {
         let sectionView = UIView()
         sectionView.translatesAutoresizingMaskIntoConstraints = false
@@ -214,7 +214,7 @@ public class AboutViewController: UIViewController, Routable {
         sectionView.layer.shadowOffset = CGSize(width: 0, height: 2)
         sectionView.layer.shadowRadius = 8
         sectionView.layer.shadowOpacity = 0.1
-        
+
         // 标题
         let titleLabel = UILabel()
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -222,38 +222,38 @@ public class AboutViewController: UIViewController, Routable {
         titleLabel.font = UIFont.boldSystemFont(ofSize: 18)
         titleLabel.textColor = .label
         sectionView.addSubview(titleLabel)
-        
+
         var lastView: UIView = titleLabel
-        
+
         // 添加信息项
         for (index, item) in items.enumerated() {
             let itemView = createInfoItemView(title: item.0, value: item.1, style: style, isLast: index == items.count - 1)
             sectionView.addSubview(itemView)
-            
+
             NSLayoutConstraint.activate([
                 itemView.topAnchor.constraint(equalTo: lastView.bottomAnchor, constant: index == 0 ? 16 : 12),
                 itemView.leadingAnchor.constraint(equalTo: sectionView.leadingAnchor, constant: 16),
                 itemView.trailingAnchor.constraint(equalTo: sectionView.trailingAnchor, constant: -16)
             ])
-            
+
             lastView = itemView
         }
-        
+
         NSLayoutConstraint.activate([
             titleLabel.topAnchor.constraint(equalTo: sectionView.topAnchor, constant: 16),
             titleLabel.leadingAnchor.constraint(equalTo: sectionView.leadingAnchor, constant: 16),
             titleLabel.trailingAnchor.constraint(equalTo: sectionView.trailingAnchor, constant: -16),
-            
+
             lastView.bottomAnchor.constraint(equalTo: sectionView.bottomAnchor, constant: -16)
         ])
-        
+
         return sectionView
     }
-    
+
     private func createInfoItemView(title: String, value: String, style: SectionStyle, isLast: Bool) -> UIView {
         let itemView = UIView()
         itemView.translatesAutoresizingMaskIntoConstraints = false
-        
+
         // 标题标签
         let titleLabel = UILabel()
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -261,7 +261,7 @@ public class AboutViewController: UIViewController, Routable {
         titleLabel.font = UIFont.systemFont(ofSize: 14, weight: .medium)
         titleLabel.textColor = .secondaryLabel
         itemView.addSubview(titleLabel)
-        
+
         // 值标签
         let valueLabel = UILabel()
         valueLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -270,7 +270,7 @@ public class AboutViewController: UIViewController, Routable {
         valueLabel.textColor = style == .contact ? .systemBlue : .label
         valueLabel.numberOfLines = 0
         itemView.addSubview(valueLabel)
-        
+
         // 如果是联系方式，添加点击手势
         if style == .contact && (title.contains("网站") || title.contains("GitHub") || title.contains("支持")) {
             let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleContactTap(_:)))
@@ -278,7 +278,7 @@ public class AboutViewController: UIViewController, Routable {
             valueLabel.addGestureRecognizer(tapGesture)
             valueLabel.tag = getContactTag(for: title)
         }
-        
+
         // 如果是法律信息，添加点击手势
         if style == .legal && title != "版权声明" {
             let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleLegalTap(_:)))
@@ -287,21 +287,21 @@ public class AboutViewController: UIViewController, Routable {
             valueLabel.tag = getLegalTag(for: title)
             valueLabel.textColor = .systemBlue
         }
-        
+
         NSLayoutConstraint.activate([
             titleLabel.topAnchor.constraint(equalTo: itemView.topAnchor),
             titleLabel.leadingAnchor.constraint(equalTo: itemView.leadingAnchor),
             titleLabel.trailingAnchor.constraint(equalTo: itemView.trailingAnchor),
-            
+
             valueLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 4),
             valueLabel.leadingAnchor.constraint(equalTo: itemView.leadingAnchor),
             valueLabel.trailingAnchor.constraint(equalTo: itemView.trailingAnchor),
             valueLabel.bottomAnchor.constraint(equalTo: itemView.bottomAnchor)
         ])
-        
+
         return itemView
     }
-    
+
     private func createThanksView() -> UIView {
         let thanksView = UIView()
         thanksView.translatesAutoresizingMaskIntoConstraints = false
@@ -311,7 +311,7 @@ public class AboutViewController: UIViewController, Routable {
         thanksView.layer.shadowOffset = CGSize(width: 0, height: 2)
         thanksView.layer.shadowRadius = 8
         thanksView.layer.shadowOpacity = 0.1
-        
+
         // 感谢图标
         let heartIcon = UIImageView()
         heartIcon.translatesAutoresizingMaskIntoConstraints = false
@@ -319,7 +319,7 @@ public class AboutViewController: UIViewController, Routable {
         heartIcon.tintColor = .systemRed
         heartIcon.contentMode = .scaleAspectFit
         thanksView.addSubview(heartIcon)
-        
+
         // 感谢文本
         let thanksLabel = UILabel()
         thanksLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -329,22 +329,22 @@ public class AboutViewController: UIViewController, Routable {
         thanksLabel.textAlignment = .center
         thanksLabel.numberOfLines = 0
         thanksView.addSubview(thanksLabel)
-        
+
         NSLayoutConstraint.activate([
             heartIcon.topAnchor.constraint(equalTo: thanksView.topAnchor, constant: 20),
             heartIcon.centerXAnchor.constraint(equalTo: thanksView.centerXAnchor),
             heartIcon.widthAnchor.constraint(equalToConstant: 24),
             heartIcon.heightAnchor.constraint(equalToConstant: 24),
-            
+
             thanksLabel.topAnchor.constraint(equalTo: heartIcon.bottomAnchor, constant: 16),
             thanksLabel.leadingAnchor.constraint(equalTo: thanksView.leadingAnchor, constant: 20),
             thanksLabel.trailingAnchor.constraint(equalTo: thanksView.trailingAnchor, constant: -20),
             thanksLabel.bottomAnchor.constraint(equalTo: thanksView.bottomAnchor, constant: -20)
         ])
-        
+
         return thanksView
     }
-    
+
     private func getContactTag(for title: String) -> Int {
         switch title {
         case "技术支持": return 1001
@@ -353,7 +353,7 @@ public class AboutViewController: UIViewController, Routable {
         default: return 0
         }
     }
-    
+
     private func getLegalTag(for title: String) -> Int {
         switch title {
         case "用户协议": return 2001
@@ -362,10 +362,10 @@ public class AboutViewController: UIViewController, Routable {
         default: return 0
         }
     }
-    
+
     @objc private func handleContactTap(_ gesture: UITapGestureRecognizer) {
         guard let label = gesture.view as? UILabel else { return }
-        
+
         switch label.tag {
         case 1001: // 技术支持
             openEmail("support@routerkit.com")
@@ -377,13 +377,13 @@ public class AboutViewController: UIViewController, Routable {
             break
         }
     }
-    
+
     @objc private func handleLegalTap(_ gesture: UITapGestureRecognizer) {
         guard let label = gesture.view as? UILabel else { return }
-        
+
         let title: String
         let content: String
-        
+
         switch label.tag {
         case 2001: // 用户协议
             title = "用户服务协议"
@@ -397,10 +397,10 @@ public class AboutViewController: UIViewController, Routable {
         default:
             return
         }
-        
+
         showLegalDocument(title: title, content: content)
     }
-    
+
     private func openEmail(_ email: String) {
         if let url = URL(string: "mailto:\(email)"), UIApplication.shared.canOpenURL(url) {
             UIApplication.shared.open(url)
@@ -408,7 +408,7 @@ public class AboutViewController: UIViewController, Routable {
             showAlert(title: "无法打开邮件", message: "请手动发送邮件到：\(email)")
         }
     }
-    
+
     private func openURL(_ urlString: String) {
         if let url = URL(string: urlString), UIApplication.shared.canOpenURL(url) {
             UIApplication.shared.open(url)
@@ -416,13 +416,13 @@ public class AboutViewController: UIViewController, Routable {
             showAlert(title: "无法打开链接", message: "请手动访问：\(urlString)")
         }
     }
-    
+
     private func showLegalDocument(title: String, content: String) {
         let alert = UIAlertController(title: title, message: content, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "确定", style: .default))
         present(alert, animated: true)
     }
-    
+
     private func showAlert(title: String, message: String) {
         let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "确定", style: .default))

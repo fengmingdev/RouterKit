@@ -56,7 +56,7 @@ let routeName: String?
 
 ```swift
 // When registering a route
-Router.shared.register("/user/:id") { context in
+Router.shared.registerRoute("/user/:id") { context in
     // Access parameters
     let userId = context.parameters["id"]
     let mode = context.parameters["mode"] // From query parameter

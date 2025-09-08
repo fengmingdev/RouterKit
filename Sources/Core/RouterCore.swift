@@ -9,21 +9,35 @@ import Combine
 import Foundation
 #if canImport(UIKit)
 import UIKit
+#elseif canImport(AppKit)
+import AppKit
 #endif
+// MARK: - 缓存统计信息结构体
+
+/// 缓存统计信息
+public struct RouterCacheStatistics {
+    public let hitCount: Int
+    public let missCount: Int
+    public let hitRate: Double
+    public let cacheSize: Int
+    public let hotCacheSize: Int
+    public let precompiledCacheSize: Int
+}
+
 // MARK: - 可路由协议
 
 /// 视图控制器需要遵循的协议，用于路由创建实例
 public protocol Routable: AnyObject {
-    #if canImport(UIKit)
+    #if canImport(UIKit) || canImport(AppKit)
     /// 根据路由上下文创建视图控制器
     /// - Parameter context: 路由上下文
     /// - Returns: 视图控制器实例
-    static func createViewController(context: RouteContext) async throws -> UIViewController
-    
+    static func createViewController(context: RouteContext) async throws -> PlatformViewController
+
     /// 根据参数创建视图控制器（兼容性方法）
     /// - Parameter parameters: 传递的参数
     /// - Returns: 视图控制器实例（可选）
-    static func viewController(with parameters: RouterParameters?) -> UIViewController?
+    static func viewController(with parameters: RouterParameters?) -> PlatformViewController?
     #endif
     /// 执行指定动作
     /// - Parameters:
@@ -60,9 +74,7 @@ public final class Router: NSObject, @unchecked Sendable {
         startModuleCleanupTimer()
         DispatchQueue.main.async {
             Task {
-                if #available(iOS 13.0, macOS 10.15, *) {
-                    await RouterMetrics.shared.initialize()
-                }
+                await RouterMetrics.shared.initialize()
             }
         }
     }
@@ -74,128 +86,15 @@ public final class Router: NSObject, @unchecked Sendable {
     #if canImport(UIKit)
     public var currentAnimation: NavigationAnimatable?
     #endif
-    private var cleanupTimer: Timer?
-    private var isCleanupPaused: Bool = false
-    private var lastCleanupTime: Date = .init()
-    private var lifecycleObservers = WeakArray<AnyObject>()
+    internal var cleanupTimer: Timer?
+    internal var isCleanupPaused: Bool = false
+    internal var lastCleanupTime: Date = .init()
+    internal var lifecycleObservers = WeakArray<AnyObject>()
     /// 命名空间缓存
     public var namespaces: [String: RouterNamespace] = [:]
 
-    // MARK: - 配置参数外部访问接口
-
-    /// 获取最大重试次数
-    public func getMaxRetryCount() async -> Int {
-        await state.getMaxRetryCount()
-    }
-
-    /// 设置最大重试次数
-    public func setMaxRetryCount(_ value: Int) async {
-        await state.setMaxRetryCount(value)
-    }
-
-    /// 获取重试延迟时间（秒）
-    public func getRetryDelay() async -> TimeInterval {
-        await state.getRetryDelay()
-    }
-
-    /// 设置重试延迟时间（秒）
-    public func setRetryDelay(_ value: TimeInterval) async {
-        await state.setRetryDelay(value)
-    }
-
-    /// 获取模块过期时间（秒）
-    public func getModuleExpirationTime() async -> TimeInterval {
-        await state.getModuleExpirationTime()
-    }
-
-    /// 设置模块过期时间（秒）
-    public func setModuleExpirationTime(_ value: TimeInterval) async {
-        await state.setModuleExpirationTime(value)
-    }
-
-    /// 获取日志启用状态
-    public func getEnableLogging() async -> Bool {
-        await state.getEnableLogging()
-    }
-
-    /// 设置日志启用状态
-    public func setEnableLogging(_ value: Bool) async {
-        await state.setEnableLogging(value)
-    }
-
-    /// 获取清理间隔时间（秒）
-    public func getCleanupInterval() async -> TimeInterval {
-        await state.getCleanupInterval()
-    }
-
-    /// 设置清理间隔时间（秒）
-    public func setCleanupInterval(_ value: TimeInterval) async {
-        await state.setCleanupInterval(value)
-        // 重新启动定时器以应用新的间隔
-        startModuleCleanupTimer()
-    }
-
-    /// 获取路由缓存大小
-    public func getCacheSize() async -> Int {
-        await state.getCacheSize()
-    }
-
-    /// 设置路由缓存大小
-    public func setCacheSize(_ value: Int) async {
-        await state.setCacheSize(value)
-        // 同时更新RouterCache的最大缓存大小
-        await state.setRouteCacheMaxSize(value)
-    }
-
-    /// 获取缓存统计信息
-    public func getCacheStatistics() async -> (hitCount: Int, missCount: Int, hitRate: Double, cacheSize: Int, hotCacheSize: Int, precompiledCacheSize: Int) {
-        return await state.getCacheStatistics()
-    }
-
-    /// 重置缓存统计信息
-    public func resetCacheStatistics() async {
-        await state.resetCacheStatistics()
-    }
-
-    /// 清空路由缓存
-    public func clearRouteCache() async {
-        await state.clearRouteCache()
-    }
-
-    /// 设置热点缓存大小
-    public func setHotCacheSize(_ size: Int) async {
-        await state.setHotCacheSize(size)
-    }
-
-    /// 设置热点阈值
-    public func setHotThreshold(_ threshold: Int) async {
-        await state.setHotThreshold(threshold)
-    }
-
-    /// 设置缓存过期时间
-    public func setCacheExpirationTime(_ time: TimeInterval) async {
-        await state.setCacheExpirationTime(time)
-    }
-
-    /// 获取参数清理启用状态
-    public func getEnableParameterSanitization() async -> Bool {
-        await state.getEnableParameterSanitization()
-    }
-
-    /// 设置参数清理启用状态
-    public func setEnableParameterSanitization(_ value: Bool) async {
-        await state.setEnableParameterSanitization(value)
-    }
-
-    /// 设置权限验证器
-    public func setPermissionValidator(_ validator: RoutePermissionValidator) async {
-        await state.setPermissionValidator(validator)
-    }
-
-    /// 获取当前权限验证器
-    public func getPermissionValidator() async -> RoutePermissionValidator {
-        await state.getPermissionValidator()
-    }
+    // MARK: - Configuration Properties
+    // Configuration methods moved to RouterConfiguration.swift
 
     // MARK: - 导航任务管理
 
@@ -213,170 +112,11 @@ public final class Router: NSObject, @unchecked Sendable {
     }
     #endif
 
-    // MARK: - 模块管理
+    // MARK: - Module Management
+    // Module management methods moved to RouterModuleManagement.swift
+    
     /// 存储模块依赖关系: 键为被依赖模块名称，值为依赖它的模块列表
-    private var dependentModules: [String: [Weak<AnyObject>]] = [:]
-
-    /// 注册模块
-    /// - Parameter module: 模块实例
-    public func registerModule<T: ModuleProtocol>(_ module: T) async {
-        await state.registerModule(module)
-        log("模块注册成功: \(module.moduleName)")
-        notifyModuleStateChanged(module, .willLoad)
-
-        // 解析并加载依赖模块
-        let dependenciesResolved = await resolveDependencies(for: module)
-        if !dependenciesResolved {
-            log("模块\(module.moduleName)依赖解析失败", level: .error)
-        }
-
-        // 加载模块 - 开始计时
-        let timerToken: Any?
-        if #available(iOS 13.0, macOS 10.15, *) {
-            timerToken = await RouterMetrics.shared.startTiming()
-        } else {
-            timerToken = nil
-        }
-
-        module.load { [weak self, weak module] success in
-            guard let self = self, let module = module else { return }
-            DispatchQueue.main.async {
-                Task {
-                    // 结束计时并记录性能
-                    if #available(iOS 13.0, macOS 10.15, *), let token = timerToken as? UUID {
-                        await RouterMetrics.shared.endTiming(token, type: .moduleLoading, moduleName: module.moduleName)
-                    }
-
-                    if success {
-                        self.log("模块加载成功: \(module.moduleName)")
-                        self.notifyModuleStateChanged(module, .didLoad)
-                        if #available(iOS 13.0, macOS 10.15, *) {
-                            await RouterMetrics.shared.recordModuleRegistered(moduleName: module.moduleName)
-                        }
-
-                        // 触发依赖此模块的其他模块重试注册
-                        self.retryDependentModules(for: module.moduleName)
-                    } else {
-                        self.log("模块加载失败: \(module.moduleName)", level: .error)
-                        await self.unregisterModule(module.moduleName)
-                    }
-                }
-            }
-        }
-    }
-
-    /// 卸载模块
-    /// - Parameter moduleName: 模块名称
-    public func unregisterModule(_ moduleName: String) async {
-        guard let module = await state.unregisterModule(moduleName) else {
-            log("模块未注册: \(moduleName)", level: .warning)
-            return
-        }
-
-        notifyModuleStateChanged(module, .willUnload)
-        module.unload()
-
-        // 清理模块关联的路由
-        await state.cleanupRoutes(for: moduleName)
-
-        // 清理缓存
-        await state.cleanupRouteCache()
-
-        // 记录事件
-        if #available(iOS 13.0, macOS 10.15, *) {
-            await RouterMetrics.shared.recordModuleUnloaded(moduleName: moduleName)
-        }
-        log("模块卸载成功: \(moduleName)")
-
-        // 通知卸载完成
-        DispatchQueue.main.async { [weak self, weak module] in
-            guard let self = self, let module = module else { return }
-            self.notifyModuleStateChanged(module, .didUnload)
-        }
-    }
-
-    /// 检查模块是否已加载
-    /// - Parameter moduleName: 模块名称
-    /// - Returns: 是否已加载
-    public func isModuleLoaded(_ moduleName: String) async -> Bool {
-        return await state.isModuleLoaded(moduleName)
-    }
-
-    /// 获取模块实例（任意模块协议类型）
-    /// - Parameter name: 模块名称
-    /// - Returns: 模块实例（可选）
-    public func getModule(_ name: String) async -> (any ModuleProtocol)? {
-        return await state.getModule(name)
-    }
-
-    /// 获取指定类型的模块实例
-    /// - Parameter type: 模块类型
-    /// - Returns: 模块实例（可选）
-    public func getModule<T: ModuleProtocol>(_ type: T.Type) async -> T? {
-        return await state.getModule(type)
-    }
-
-    /// 重试注册依赖指定模块的其他模块
-    /// - Parameter moduleName: 被依赖的模块名称
-    private func retryDependentModules(for moduleName: String) {
-        guard let dependents = dependentModules[moduleName] else { return }
-
-        // 过滤出仍然有效的模块
-        let validModules = dependents.compactMap { $0.value as? any ModuleProtocol }
-
-        // 移除已处理的依赖关系
-        dependentModules.removeValue(forKey: moduleName)
-
-        // 重新注册依赖模块
-        for module in validModules {
-            DispatchQueue.main.async {
-                Task {
-                    await self.registerModule(module)
-                }
-            }
-        }
-    }
-
-    /// 自动解析并加载模块依赖
-    /// - Returns: 依赖是否成功解析
-    private func resolveDependencies(for module: ModuleProtocol) async -> Bool {
-        for dependency in module.dependencies {
-            let isLoaded = await state.isModuleLoaded(dependency.moduleName)
-            guard !isLoaded else {
-                continue
-            }
-
-            let dependencyModule = createModule(named: dependency.moduleName)
-
-            if let dependencyModule = dependencyModule {
-                // 记录依赖关系
-                let weakModule = Weak(value: module as AnyObject)
-                if dependentModules[dependency.moduleName] == nil {
-                    dependentModules[dependency.moduleName] = []
-                }
-                dependentModules[dependency.moduleName]?.append(weakModule)
-                await registerModule(dependencyModule)
-            } else if dependency.isRequired {
-                log("模块\(module.moduleName)的必需依赖\(dependency.moduleName)未找到", level: .error)
-                return false
-            }
-        }
-        return true
-    }
-
-    /// 通过模块名反射创建实例
-    public func createModule(named moduleName: String) -> (any ModuleProtocol)? {
-        // 反射方式创建模块
-        // 添加模块名前缀以匹配实际类名
-        let fullClassName = moduleName
-        guard let moduleClass = NSClassFromString(fullClassName) as? ModuleProtocol.Type else {
-            return nil
-        }
-
-        let moduleInstance = moduleClass.init()
-        log("成功创建模块实例: \(moduleName)", level: .info)
-        return moduleInstance
-    }
+    internal var dependentModules: [String: [Weak<AnyObject>]] = [:]
 
     // MARK: - 重置路由
 
@@ -495,7 +235,7 @@ public final class Router: NSObject, @unchecked Sendable {
     /// - Parameters:
     ///   - module: 模块实例
     ///   - state: 新状态
-    private func notifyModuleStateChanged(_ module: ModuleProtocol, _ state: ModuleState) {
+    internal func notifyModuleStateChanged(_ module: ModuleProtocol, _ state: ModuleState) {
         DispatchQueue.main.async { [weak self, weak module] in
             guard let self = self, let module = module else { return }
 
@@ -531,79 +271,18 @@ public final class Router: NSObject, @unchecked Sendable {
                     line: Int = #line,
                     function: String = #function) {
         DispatchQueue.main.async { [weak self] in
-            if #available(iOS 13.0, macOS 10.15, *) {
-                Task {
-                    guard let self = self else { return }
-                    let enableLogging = await self.state.getEnableLogging()
-                    if enableLogging {
-                        await RouterLogger.shared.log(message, level: level, file: file, line: line, function: function)
-                    }
+            Task {
+                guard let self = self else { return }
+                let enableLogging = await self.state.getEnableLogging()
+                if enableLogging {
+                    await RouterLogger.shared.log(message, level: level, file: file, line: line, function: function)
                 }
             }
         }
     }
 
-    /// 启动模块清理定时器
-    public func startModuleCleanupTimer() {
-        cleanupTimer?.invalidate()
-        cleanupTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
-            guard let self = self, !self.isCleanupPaused else { return }
-            DispatchQueue.main.async {
-                if #available(iOS 13.0, macOS 10.15, *) {
-                    Task {
-                        await self.cleanupUnusedModules()
-                    }
-                }
-            }
-        }
-    }
-
-    /// 暂停模块清理
-    public func pauseCleanup() {
-        isCleanupPaused = true
-        log("模块清理已暂停")
-    }
-
-    /// 恢复模块清理
-    public func resumeCleanup() {
-        isCleanupPaused = false
-        let now = Date()
-        if now.timeIntervalSince(lastCleanupTime) > 60 {
-            DispatchQueue.main.async {
-                if #available(iOS 13.0, macOS 10.15, *) {
-                    Task {
-                        await self.cleanupUnusedModules()
-                    }
-                } else {
-                    // iOS 12及以下版本的兼容处理
-                    DispatchQueue.global().async {
-                        // 在旧版本中同步执行清理
-                    }
-                }
-            }
-        }
-        log("模块清理已恢复")
-    }
-
-    /// 强制清理过期模块
-    public func forceCleanup() async {
-        await cleanupUnusedModules()
-    }
-
-    /// 清理未使用的过期模块
-    public func cleanupUnusedModules() async {
-        let now = Date()
-        lastCleanupTime = now
-
-        let expiredModuleNames = await state.getExpiredModules(currentTime: now)
-
-        for moduleName in expiredModuleNames {
-            log("清理过期模块: \(moduleName)")
-            await unregisterModule(moduleName)
-        }
-
-        await state.cleanupRouteCache()
-    }
+    // MARK: - Cleanup Management
+    // Cleanup methods moved to RouterCleanupManagement.swift
 
     // MARK: - 优化的路由匹配方法
 
@@ -611,12 +290,10 @@ public final class Router: NSObject, @unchecked Sendable {
         let result = await state.matchRoute(url)
 
         // 记录路由结果
-        if #available(iOS 13.0, macOS 10.15, *) {
-            if let pattern = result?.pattern {
-                await RouterMetrics.shared.recordRouteSuccess(routePattern: pattern.pattern, moduleName: pattern.moduleName)
-            } else {
-                await RouterMetrics.shared.recordRouteFailure(routePattern: url.absoluteString, moduleName: nil, error: RouterError.routeNotFound(url.absoluteString))
-            }
+        if let pattern = result?.pattern {
+            await RouterMetrics.shared.recordRouteSuccess(routePattern: pattern.pattern, moduleName: pattern.moduleName)
+        } else {
+            await RouterMetrics.shared.recordRouteFailure(routePattern: url.absoluteString, moduleName: nil, error: RouterError.routeNotFound(url.absoluteString))
         }
 
         return result

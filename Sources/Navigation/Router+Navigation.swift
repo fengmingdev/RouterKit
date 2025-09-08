@@ -14,6 +14,11 @@
 import Foundation
 #if canImport(UIKit)
 import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
+
+#if canImport(UIKit) || canImport(AppKit)
 
 // MARK: - 导航功能扩展（已重构拆分）
 // 此文件保留用于向后兼容，实际功能已迁移到其他文件

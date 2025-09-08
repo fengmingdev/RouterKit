@@ -8,10 +8,16 @@
 import Foundation
 #if canImport(UIKit)
 import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
+
+#if canImport(UIKit) || canImport(AppKit)
 
 // MARK: - 静态导航方法扩展
 
 @MainActor
+@available(iOS 13.0, macOS 10.15, *)
 extension Router {
     /// 静态push方法，方便全局调用
     /// - Parameters:
@@ -19,17 +25,19 @@ extension Router {
     ///   - parameters: 路由参数
     public static func push(to url: String,
                             parameters: RouterParameters? = nil,
-                            from sourceVC: UIViewController? = nil,
+                            from sourceVC: PlatformViewController? = nil,
                             animated: Bool = true,
                             animationId: String? = nil,
                             completion: @escaping RouterCompletion = { _ in }) {
         shared.navigate(
             to: url,
-            parameters: parameters,
-            from: sourceVC,
-            type: .push,
-            animated: animated,
-            animationId: animationId,
+            config: NavigationConfig(
+                parameters: parameters,
+                sourceVC: sourceVC,
+                type: NavigationType.push,
+                animated: animated,
+                animationId: animationId
+            ),
             completion: completion
         )
     }
@@ -40,17 +48,19 @@ extension Router {
     ///   - parameters: 路由参数
     public static func present(to url: String,
                                parameters: RouterParameters? = nil,
-                               from sourceVC: UIViewController? = nil,
+                               from sourceVC: PlatformViewController? = nil,
                                animated: Bool = true,
                                animationId: String? = nil,
                                completion: @escaping RouterCompletion = { _ in }) {
         shared.navigate(
             to: url,
-            parameters: parameters,
-            from: sourceVC,
-            type: .present,
-            animated: animated,
-            animationId: animationId,
+            config: NavigationConfig(
+                parameters: parameters,
+                sourceVC: sourceVC,
+                type: NavigationType.present,
+                animated: animated,
+                animationId: animationId
+            ),
             completion: completion
         )
     }
@@ -61,17 +71,19 @@ extension Router {
     ///   - parameters: 路由参数
     public static func replace(to url: String,
                                parameters: RouterParameters? = nil,
-                               from sourceVC: UIViewController? = nil,
+                               from sourceVC: PlatformViewController? = nil,
                                animated: Bool = true,
                                animationId: String? = nil,
                                completion: @escaping RouterCompletion = { _ in }) {
         shared.navigate(
             to: url,
-            parameters: parameters,
-            from: sourceVC,
-            type: .replace,
-            animated: animated,
-            animationId: animationId,
+            config: NavigationConfig(
+                parameters: parameters,
+                sourceVC: sourceVC,
+                type: NavigationType.replace,
+                animated: animated,
+                animationId: animationId
+            ),
             completion: completion
         )
     }
@@ -84,15 +96,17 @@ extension Router {
                            completion: @escaping RouterCompletion = { _ in }) {
         shared.navigate(
             to: "",
-            parameters: nil,
-            from: nil,
-            type: .pop,
-            animated: animated,
-            animationId: nil,
+            config: NavigationConfig(
+                parameters: nil as RouterParameters?,
+                sourceVC: nil as PlatformViewController?,
+                type: NavigationType.pop,
+                animated: animated,
+                animationId: nil as String?
+            ),
             completion: completion
         )
     }
-    
+
     /// 静态popToRoot方法，返回根页面
     /// - Parameters:
     ///   - animated: 是否动画
@@ -101,11 +115,13 @@ extension Router {
                                  completion: @escaping RouterCompletion = { _ in }) {
         shared.navigate(
             to: "",
-            parameters: nil,
-            from: nil,
-            type: .popToRoot,
-            animated: animated,
-            animationId: nil,
+            config: NavigationConfig(
+                parameters: nil as RouterParameters?,
+                sourceVC: nil as PlatformViewController?,
+                type: NavigationType.popToRoot,
+                animated: animated,
+                animationId: nil as String?
+            ),
             completion: completion
         )
     }
@@ -120,11 +136,13 @@ extension Router {
                              completion: @escaping RouterCompletion = { _ in }) {
         shared.navigate(
             to: url,
-            parameters: nil,
-            from: nil,
-            type: .popTo,
-            animated: animated,
-            animationId: nil,
+            config: NavigationConfig(
+                parameters: nil as RouterParameters?,
+                sourceVC: nil as PlatformViewController?,
+                type: NavigationType.popTo,
+                animated: animated,
+                animationId: nil as String?
+            ),
             completion: completion
         )
     }

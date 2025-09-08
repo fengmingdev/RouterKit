@@ -13,50 +13,51 @@ public class ParameterPassingModule: ModuleProtocol {
     public var moduleName: String = "ParameterPassingModule"
     public var dependencies: [ModuleDependency] = []
     public var lastUsedTime: Date = Date()
-    
+
     public required init() {}
-    
+
     public func load(completion: @escaping (Bool) -> Void) {
         Task {
-            await registerRoutes()
-            completion(true)
+            do {
+                try await registerRoutes()
+                completion(true)
+            } catch {
+                print("ParameterPassingModule: 路由注册失败 - \(error)")
+                completion(false)
+            }
         }
     }
-    
+
     public func unload() {
         print("ParameterPassingModule unloaded")
     }
-    
+
     public func suspend() {
         print("ParameterPassingModule suspended")
     }
-    
+
     public func resume() {
         lastUsedTime = Date()
         print("ParameterPassingModule resumed")
     }
-    
-    func registerRoutes() async {
+
+    func registerRoutes() async throws {
         print("ParameterPassingModule: 开始注册路由")
-        
+
         // 基础参数传递示例
-        await Router.shared.register("/ParameterPassingModule/basic", for: BasicParameterViewController.self)
+        try await Router.shared.registerRoute("/ParameterPassingModule/basic", for: BasicParameterViewController.self)
+            
+        try await Router.shared.registerRoute("/ParameterPassingModule/complex", for: ComplexObjectViewController.self)
         
-        // 复杂对象传递示例
-        await Router.shared.register("/ParameterPassingModule/complex", for: ComplexObjectViewController.self)
+        try await Router.shared.registerRoute("/ParameterPassingModule/callback", for: CallbackViewController.self)
         
-        // 回调参数传递示例
-        await Router.shared.register("/ParameterPassingModule/callback", for: CallbackViewController.self)
+        try await Router.shared.registerRoute("/ParameterPassingModule/global", for: GlobalStateViewController.self)
         
-        // 全局状态传递示例
-        await Router.shared.register("/ParameterPassingModule/global", for: GlobalStateViewController.self)
-        
-        // 数据流传递示例
-        await Router.shared.register("/ParameterPassingModule/dataflow", for: DataFlowViewController.self)
-        
+        try await Router.shared.registerRoute("/ParameterPassingModule/dataflow", for: DataFlowViewController.self)
+
         print("ParameterPassingModule: 路由注册完成")
     }
-    
+
     func performAction(_ action: String, parameters: RouterParameters?, completion: @escaping RouterCompletion) {
         // 实现模块动作处理
         completion(.failure(RouterError.actionNotFound(action)))
@@ -75,7 +76,7 @@ struct UserInfo: Codable {
     let bio: String?
     let isVIP: Bool
     let address: Address?
-    
+
     init(id: Int, name: String, email: String, avatar: String? = nil, age: Int? = nil, bio: String? = nil, isVIP: Bool = false, address: Address? = nil) {
         self.id = id
         self.name = name
@@ -100,7 +101,7 @@ struct ProductInfo: Codable {
     let inStock: Bool
     let stock: Int
     let tags: [String]
-    
+
     init(id: String, title: String, description: String, price: Double, category: String, images: [String] = [], inStock: Bool = true, name: String? = nil, stock: Int = 0, tags: [String] = []) {
         self.id = id
         self.title = title
@@ -125,7 +126,7 @@ struct OrderInfo: Codable {
     let status: OrderStatus
     let createdAt: Date
     let shippingAddress: Address?
-    
+
     init(orderId: String, userId: Int, products: [ProductInfo], totalAmount: Double, status: String, createdAt: Date, shippingAddress: Address?) {
         self.orderId = orderId
         self.userId = userId
@@ -136,14 +137,14 @@ struct OrderInfo: Codable {
         self.createdAt = createdAt
         self.shippingAddress = shippingAddress
     }
-    
+
     enum OrderStatus: String, Codable, CaseIterable {
         case pending = "pending"
         case confirmed = "confirmed"
         case shipped = "shipped"
         case delivered = "delivered"
         case cancelled = "cancelled"
-        
+
         var displayName: String {
             switch self {
             case .pending: return "待处理"
@@ -163,7 +164,7 @@ struct Address: Codable {
     let state: String
     let zipCode: String
     let country: String
-    
+
     var fullAddress: String {
         return "\(street), \(city), \(state) \(zipCode), \(country)"
     }
@@ -217,7 +218,7 @@ typealias DataSelectionCallback = ([String: Any]) -> Void
 struct FormData {
     let fields: [String: Any]
     let timestamp: Date
-    
+
     init(fields: [String: Any]) {
         self.fields = fields
         self.timestamp = Date()
@@ -229,40 +230,40 @@ struct FormData {
 /// 回调管理器
 class CallbackManager {
     static let shared = CallbackManager()
-    
+
     private init() {}
-    
+
     private var callbacks: [String: Any] = [:]
-    
+
     func registerCallback<T>(_ key: String, callback: T) {
         callbacks[key] = callback
     }
-    
+
     func getCallback<T>(_ key: String, as type: T.Type) -> T? {
         return callbacks[key] as? T
     }
-    
+
     func removeCallback(_ key: String) {
         callbacks.removeValue(forKey: key)
     }
-    
+
     func clearAllCallbacks() {
         callbacks.removeAll()
     }
-    
+
     func extractCallbacks(from parameters: [String: Any]?) -> [String: Any] {
         guard let params = parameters else { return [:] }
         var extractedCallbacks: [String: Any] = [:]
-        
+
         for (key, value) in params {
             if key.hasSuffix("_callback") || key.contains("callback") {
                 extractedCallbacks[key] = value
             }
         }
-        
+
         return extractedCallbacks
     }
-    
+
     func encodeCallbacks(_ callbacks: [String: Any]) -> [String: Any] {
         return callbacks
     }
@@ -273,9 +274,9 @@ class CallbackManager {
 /// 全局状态管理器
 class GlobalStateManager {
     static let shared = GlobalStateManager()
-    
+
     private init() {}
-    
+
     // MARK: - 用户状态
     private var _currentUser: UserInfo?
     var currentUser: UserInfo? {
@@ -285,7 +286,7 @@ class GlobalStateManager {
             NotificationCenter.default.post(name: .userStateChanged, object: newValue)
         }
     }
-    
+
     // MARK: - 购物车状态
     private var _cartItems: [ProductInfo] = []
     var cartItems: [ProductInfo] {
@@ -295,7 +296,7 @@ class GlobalStateManager {
             NotificationCenter.default.post(name: .cartStateChanged, object: newValue)
         }
     }
-    
+
     // MARK: - 应用设置
     private var _appSettings: [String: Any] = [:]
     var appSettings: [String: Any] {
@@ -305,7 +306,7 @@ class GlobalStateManager {
             NotificationCenter.default.post(name: .settingsChanged, object: newValue)
         }
     }
-    
+
     // MARK: - 便利方法
     func addToCart(_ product: ProductInfo) {
         if !_cartItems.contains(where: { $0.id == product.id }) {
@@ -313,22 +314,22 @@ class GlobalStateManager {
             NotificationCenter.default.post(name: .cartStateChanged, object: _cartItems)
         }
     }
-    
+
     func removeFromCart(_ productId: String) {
         _cartItems.removeAll { $0.id == productId }
         NotificationCenter.default.post(name: .cartStateChanged, object: _cartItems)
     }
-    
+
     func clearCart() {
         _cartItems.removeAll()
         NotificationCenter.default.post(name: .cartStateChanged, object: _cartItems)
     }
-    
+
     func updateSetting(key: String, value: Any) {
         _appSettings[key] = value
         NotificationCenter.default.post(name: .settingsChanged, object: _appSettings)
     }
-    
+
     func setUserState(_ state: [String: Any]) {
         // 从字典中提取用户信息并设置
         if let userId = state["id"] as? Int,
@@ -341,37 +342,37 @@ class GlobalStateManager {
             currentUser = user
         }
     }
-    
+
     func setAppState(_ state: [String: Any]) {
         _appSettings = state
     }
-    
+
     // MARK: - Additional State Management Methods
-    
+
     private var globalStates: [String: Any] = [:]
-    
+
     func getState(for key: String) -> Any? {
         return globalStates[key]
     }
-    
+
     func updateStates(_ states: [String: Any]) {
         for (key, value) in states {
             globalStates[key] = value
         }
     }
-    
+
     func getAllStates() -> [String: Any] {
         return globalStates
     }
-    
+
     func clearAllStates() {
         globalStates.removeAll()
     }
-    
+
     func setState(_ value: Any, for key: String) {
         globalStates[key] = value
     }
-    
+
     func removeState(for key: String) {
         globalStates.removeValue(forKey: key)
     }
@@ -390,46 +391,46 @@ extension Notification.Name {
 /// 数据流管理器
 class DataFlowManager {
     static let shared = DataFlowManager()
-    
+
     private init() {}
-    
+
     private var dataStreams: [String: Any] = [:]
     private var subscribers: [String: [(Any) -> Void]] = [:]
-    
+
     /// 创建数据流
     func createStream<T>(name: String, initialValue: T) {
         dataStreams[name] = initialValue
         subscribers[name] = []
     }
-    
+
     /// 订阅数据流
     func subscribe<T>(to streamName: String, callback: @escaping (T) -> Void) {
         if subscribers[streamName] == nil {
             subscribers[streamName] = []
         }
-        
+
         let wrappedCallback: (Any) -> Void = { value in
             if let typedValue = value as? T {
                 callback(typedValue)
             }
         }
-        
+
         subscribers[streamName]?.append(wrappedCallback)
-        
+
         // 立即发送当前值
         if let currentValue = dataStreams[streamName] as? T {
             callback(currentValue)
         }
     }
-    
+
     /// 更新数据流
     func updateStream<T>(name: String, value: T) {
         dataStreams[name] = value
-        
+
         subscribers[name]?.forEach { callback in
             callback(value)
         }
-        
+
         // 发送通知
         NotificationCenter.default.post(
             name: .dataFlowUpdate,
@@ -437,31 +438,31 @@ class DataFlowManager {
             userInfo: ["streamName": name, "value": value]
         )
     }
-    
+
     /// 获取数据流当前值
     func getValue<T>(from streamName: String, as type: T.Type) -> T? {
         return dataStreams[streamName] as? T
     }
-    
+
     /// 移除数据流
     func removeStream(name: String) {
         dataStreams.removeValue(forKey: name)
         subscribers.removeValue(forKey: name)
     }
-    
+
     func publish(to streamId: String, data: [String: Any]) {
         updateStream(name: streamId, value: data)
     }
-    
+
     func subscribe(streamId: String, subscriber: String, callback: @escaping ([String: Any]) -> Void) {
         subscribe(to: streamId, callback: callback)
     }
-    
+
     func unsubscribeAll(for subscriber: Any) {
         // 简单实现，实际应该根据subscriber移除特定订阅
         subscribers.removeAll()
     }
-    
+
     func clearAll() {
         dataStreams.removeAll()
         subscribers.removeAll()
@@ -472,7 +473,7 @@ class DataFlowManager {
 
 /// 参数传递工具类
 class ParameterPassingUtils {
-    
+
     /// 编码对象为字典
     static func encode<T: Codable>(_ object: T) -> [String: Any]? {
         do {
@@ -484,7 +485,7 @@ class ParameterPassingUtils {
             return nil
         }
     }
-    
+
     /// 从字典解码对象
     static func decode<T: Codable>(_ dictionary: [String: Any], as type: T.Type) -> T? {
         do {
@@ -496,50 +497,50 @@ class ParameterPassingUtils {
             return nil
         }
     }
-    
+
     /// 安全获取参数
     static func safeGetParameter<T>(_ parameters: [String: Any], key: String, as type: T.Type, defaultValue: T? = nil) -> T? {
         if let value = parameters[key] as? T {
             return value
         }
-        
+
         if let defaultValue = defaultValue {
             print("ParameterPassingUtils: 参数 '\(key)' 不存在或类型不匹配，使用默认值")
             return defaultValue
         }
-        
+
         print("ParameterPassingUtils: 参数 '\(key)' 不存在或类型不匹配")
         return nil
     }
-    
+
     /// 验证必需参数
     static func validateRequiredParameters(_ parameters: [String: Any], requiredKeys: [String]) -> [String] {
         var missingKeys: [String] = []
-        
+
         for key in requiredKeys {
             if parameters[key] == nil {
                 missingKeys.append(key)
             }
         }
-        
+
         return missingKeys
     }
-    
+
     /// 从参数中获取对象
     static func getObject<T: Codable>(from parameters: [String: Any], key: String, type: T.Type) -> T? {
         guard let dictionary = parameters[key] as? [String: Any] else {
             print("ParameterPassingUtils: 参数 '\(key)' 不存在或不是字典类型")
             return nil
         }
-        
+
         return decode(dictionary, as: type)
     }
-    
+
     /// 编码对象为字典（别名方法）
     static func encodeObject<T: Codable>(_ object: T) -> [String: Any]? {
         return encode(object)
     }
-    
+
     /// 对象转字典（别名方法）
     static func objectToDictionary<T: Codable>(_ object: T) -> [String: Any]? {
         return encode(object)

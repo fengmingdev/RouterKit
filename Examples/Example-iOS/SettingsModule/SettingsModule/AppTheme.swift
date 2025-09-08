@@ -12,7 +12,7 @@ public enum AppTheme: String, CaseIterable {
     case system = "system"
     case light = "light"
     case dark = "dark"
-    
+
     public var displayName: String {
         switch self {
         case .system: return "跟随系统"

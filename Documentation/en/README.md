@@ -25,7 +25,7 @@ dependencies: [
 ### Cocoapods
 Add the following to your Podfile:
 ```ruby
-pod 'RouterKit', '~> 1.0.0'
+pod 'RouterKit-Swift', '~> 1.0.0'
 ```
 
 ### Carthage
