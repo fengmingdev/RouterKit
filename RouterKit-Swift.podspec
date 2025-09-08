@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name         = 'RouterKit-Swift'
-  s.version      = '1.0.0'
+  s.version      = '1.0.1'
   s.summary      = 'A powerful, modular routing framework for iOS applications.'
   s.description  = <<-DESC
                    A powerful, modular routing framework for iOS applications with support for parameters, regex, and wildcards.
