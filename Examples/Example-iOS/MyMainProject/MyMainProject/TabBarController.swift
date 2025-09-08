@@ -14,17 +14,17 @@ private struct AssociatedKeys {
     static var routeKey: UInt8 = 0
 }
 
-class TabBarController: UITabBarController {
+class TabBarController: UITabBarController, Routable, UITabBarControllerDelegate {
 
     // Tab配置
     private let tabConfigs: [(title: String, icon: String, selectedIcon: String, route: String)] = [
-        ("首页", "house", "house.fill", "/"),
+        ("首页", "house", "house.fill", "/Root/home"),  // 修改为 /home 路由
         ("消息", "message", "message.fill", "/MessageModule/message"),
         ("资料", "person", "person.fill", "/ProfileModule/profile"),
-        ("参数", "arrow.left.arrow.right", "arrow.left.arrow.right.circle.fill", "/ParameterPassingModule/parameterPassing"),
+        ("参数", "arrow.left.arrow.right", "arrow.left.arrow.right.circle.fill", "/ParameterPassingModule/basic"),  // 修改为实际注册的路由
         ("拦截器", "shield", "shield.fill", "/InterceptorModule/interceptor"),
         ("动画", "sparkles", "sparkles.circle.fill", "/AnimationModule/animation"),
-        ("错误处理", "exclamationmark.triangle", "exclamationmark.triangle.fill", "/ErrorHandlingModule/errorhandling"),
+        ("错误处理", "exclamationmark.triangle", "exclamationmark.triangle.fill", "/ErrorHandlingModule/errorHandling"),
         ("设置", "gearshape", "gearshape.fill", "/SettingsModule/settings")
     ]
 
@@ -33,9 +33,25 @@ class TabBarController: UITabBarController {
         setupTabBar()
         setupViewControllers()
         setupTabBarAppearance()
+        
+        // 设置delegate
+        self.delegate = self
 
         // 设置默认选中第一个tab
         selectedIndex = 0
+    }
+
+    // MARK: - Routable协议实现
+    public static func viewController(with parameters: RouterParameters?) -> UIViewController? {
+        return TabBarController()
+    }
+
+    public static func createViewController(context: RouteContext) async throws -> PlatformViewController {
+        return TabBarController()
+    }
+
+    public static func performAction(_ action: String, parameters: RouterParameters?, completion: @escaping RouterCompletion) {
+        completion(.failure(RouterError.actionNotFound(action)))
     }
 
     private func setupTabBar() {
@@ -73,18 +89,22 @@ class TabBarController: UITabBarController {
 
         switch config.route {
         case "/":
-            viewController = createHomeViewController()
+            // 根路径应该显示 HomeViewController
+            viewController = HomeViewController()
+        case "/Root/home":
+            // 首页路由也显示 HomeViewController
+            viewController = HomeViewController()
         case "/MessageModule/message":
             viewController = createPlaceholderViewController(title: "消息", route: config.route)
         case "/ProfileModule/profile":
             viewController = createPlaceholderViewController(title: "资料", route: config.route)
-        case "/ParameterPassingModule/parameterPassing":
+        case "/ParameterPassingModule/basic":
             viewController = createPlaceholderViewController(title: "参数", route: config.route)
         case "/InterceptorModule/interceptor":
             viewController = createPlaceholderViewController(title: "拦截器", route: config.route)
         case "/AnimationModule/animation":
             viewController = createPlaceholderViewController(title: "动画", route: config.route)
-        case "/ErrorHandlingModule/errorhandling":
+        case "/ErrorHandlingModule/errorHandling":
             viewController = createPlaceholderViewController(title: "错误处理", route: config.route)
         case "/SettingsModule/settings":
             viewController = createPlaceholderViewController(title: "设置", route: config.route)
@@ -452,7 +472,7 @@ class TabBarController: UITabBarController {
 
     // MARK: - TabBar Delegate
     override func tabBar(_ tabBar: UITabBar, didSelect item: UITabBarItem) {
-        super.tabBar(tabBar, didSelect: item)
+//        super.tabBar(tabBar, didSelect: item)
 
         // 添加选中动画
         if let index = tabBar.items?.firstIndex(of: item) {
@@ -462,17 +482,32 @@ class TabBarController: UITabBarController {
 
     private func animateTabSelection(at index: Int) {
         guard let tabBarItems = tabBar.items,
-              index < tabBarItems.count,
-              let view = tabBar.subviews.first(where: { $0.frame.origin.x > 0 }) else {
+              index >= 0,
+              index < tabBarItems.count else {
             return
         }
-
-        // 简单的缩放动画
-        UIView.animate(withDuration: 0.1, animations: {
-            view.transform = CGAffineTransform(scaleX: 0.95, y: 0.95)
+        
+        // 获取所有UITabBarButton并按位置排序
+        let tabBarButtons = tabBar.subviews
+            .filter { view in
+                // 过滤出标签按钮（通过类名前缀判断）
+                String(describing: type(of: view)).hasPrefix("UITabBarButton")
+            }
+            .sorted { $0.frame.origin.x < $1.frame.origin.x } // 按x坐标排序
+        
+        // 确保索引有效并获取对应按钮
+        guard index < tabBarButtons.count else {
+            return
+        }
+        let targetButton = tabBarButtons[index]
+        // 执行缩放动画
+        UIView.animate(withDuration: 0.15, animations: {
+            targetButton.transform = CGAffineTransform(scaleX: 0.92, y: 0.92)
+            targetButton.alpha = 0.8
         }) { _ in
-            UIView.animate(withDuration: 0.1) {
-                view.transform = CGAffineTransform.identity
+            UIView.animate(withDuration: 0.15) {
+                targetButton.transform = .identity
+                targetButton.alpha = 1.0
             }
         }
     }

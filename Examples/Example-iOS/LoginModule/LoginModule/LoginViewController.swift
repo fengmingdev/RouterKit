@@ -51,7 +51,7 @@ public class LoginViewController: UIViewController, Routable {
     }()
 
     // 认证模块引用
-    private var loginModule: LoginModule?
+    private let loginModule = LoginModule()
 
     // MARK: - 生命周期
 
@@ -60,11 +60,10 @@ public class LoginViewController: UIViewController, Routable {
         setupUI()
         setupConstraints()
         setupActions()
-
-        // 获取认证模块实例
-        Task {
-            self.loginModule = await Router.shared.getModule(LoginModule.self)
-        }
+        
+        // 确保按钮是启用状态
+        loginButton.isEnabled = true
+        loginButton.setTitle("登录", for: .normal)
     }
 
     // MARK: - UI设置
@@ -129,7 +128,7 @@ public class LoginViewController: UIViewController, Routable {
         errorLabel.isHidden = true
 
         // 调用认证模块进行登录
-        loginModule?.login(username: username, password: password) { [weak self] success, error in
+        loginModule.login(username: username, password: password) { [weak self] success, error in
             DispatchQueue.main.async {
                 guard let self = self else { return }
 
@@ -138,8 +137,15 @@ public class LoginViewController: UIViewController, Routable {
                 self.loginButton.isEnabled = true
 
                 if success {
-                    // 登录成功，返回上一页
-                    self.navigationController?.popViewController(animated: true)
+                    // 登录成功，跳转到根路径
+                    Router.replace(to: "/") { result in
+                        switch result {
+                        case .success:
+                            print("成功跳转到主页面")
+                        case .failure(let error):
+                            print("跳转失败: \(error)")
+                        }
+                    }
                 } else {
                     // 显示错误信息
                     self.showError(error?.localizedDescription ?? "登录失败，请重试")

@@ -90,7 +90,7 @@ class ParameterPassingViewController: UIViewController, Routable {
             title: "基础参数传递",
             description: "展示字符串、数字、布尔值、数组、字典等基础数据类型的传递",
             icon: "📝",
-            route: "/ParameterPassingModule/basicParameter",
+            route: "/ParameterPassingModule/basic",
             examples: [
                 "字符串参数传递",
                 "数字和布尔值传递",
@@ -106,7 +106,7 @@ class ParameterPassingViewController: UIViewController, Routable {
             title: "复杂对象传递",
             description: "展示自定义对象、模型数据、嵌套结构等复杂数据的传递",
             icon: "🏗️",
-            route: "/ParameterPassingModule/complexObject",
+            route: "/ParameterPassingModule/complex",
             examples: [
                 "用户信息对象",
                 "产品详情数据",
@@ -138,7 +138,7 @@ class ParameterPassingViewController: UIViewController, Routable {
             title: "全局状态传递",
             description: "展示通过全局状态管理器进行跨页面数据共享和状态同步",
             icon: "🌐",
-            route: "/ParameterPassingModule/globalState",
+            route: "/ParameterPassingModule/global",
             examples: [
                 "用户状态管理",
                 "应用配置状态",
@@ -154,7 +154,7 @@ class ParameterPassingViewController: UIViewController, Routable {
             title: "数据流传递",
             description: "展示实时数据流、事件流、响应式数据传递等高级功能",
             icon: "🌊",
-            route: "/ParameterPassingModule/dataFlow",
+            route: "/ParameterPassingModule/dataflow",
             examples: [
                 "实时数据流",
                 "事件流处理",
@@ -363,15 +363,15 @@ class ParameterPassingViewController: UIViewController, Routable {
         let route: String
         switch exampleType {
         case "basic":
-            route = "/ParameterPassingModule/basicParameter"
+            route = "/ParameterPassingModule/basic"
         case "complex":
-            route = "/ParameterPassingModule/complexObject"
+            route = "/ParameterPassingModule/complex"
         case "callback":
             route = "/ParameterPassingModule/callback"
         case "globalState":
-            route = "/ParameterPassingModule/globalState"
+            route = "/ParameterPassingModule/global"
         case "dataFlow":
-            route = "/ParameterPassingModule/dataFlow"
+            route = "/ParameterPassingModule/dataflow"
         default:
             print("未知的示例类型: \(exampleType)")
             return
@@ -393,7 +393,7 @@ class ParameterPassingViewController: UIViewController, Routable {
             "source": "ParameterPassingViewController"
         ]
 
-        Router.push(to: "/ParameterPassingModule/basicParameter", parameters: parameters)
+        Router.push(to: "/ParameterPassingModule/basic", parameters: parameters)
     }
 
     func testComplexObjectPassing() {
@@ -420,7 +420,7 @@ class ParameterPassingViewController: UIViewController, Routable {
             "source": "ParameterPassingViewController"
         ]
 
-        Router.push(to: "/ParameterPassingModule/complexObject", parameters: parameters)
+        Router.push(to: "/ParameterPassingModule/complex", parameters: parameters)
     }
 
     func testCallbackChain() {
@@ -471,7 +471,7 @@ class ParameterPassingViewController: UIViewController, Routable {
             "source": "ParameterPassingViewController"
         ]
 
-        Router.push(to: "/ParameterPassingModule/globalState", parameters: parameters)
+        Router.push(to: "/ParameterPassingModule/global", parameters: parameters)
     }
 
     func testDataFlowPassing() {
@@ -495,7 +495,7 @@ class ParameterPassingViewController: UIViewController, Routable {
             "source": "ParameterPassingViewController"
         ]
 
-        Router.push(to: "/ParameterPassingModule/dataFlow", parameters: parameters)
+        Router.push(to: "/ParameterPassingModule/dataflow", parameters: parameters)
     }
 
     @objc private func buttonTapped(_ sender: UIButton) {

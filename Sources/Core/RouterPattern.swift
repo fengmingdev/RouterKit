@@ -53,6 +53,13 @@ public struct RoutePattern: Hashable {
         self.pattern = pattern
         self.cachedHashValue = pattern.hashValue
 
+        // 特殊处理根路径
+        if pattern == "/" {
+            self.moduleName = ""  // 根路径没有模块名
+            self.components = []  // 根路径没有组件
+            return
+        }
+
         let pathComponents = pattern.components(separatedBy: "/").filter { !$0.isEmpty }
         guard !pathComponents.isEmpty else {
             throw RouterError.patternSyntaxError("路由模式不能为空: \(pattern)")
@@ -157,6 +164,13 @@ extension UUID: RouteParameterConvertible {
     /// - Parameter url: 要匹配的URL
     /// - Returns: 匹配结果（包含参数和是否完全匹配）
     func match(_ url: URL) -> (parameters: [String: Any], isExactMatch: Bool) {
+        // 特殊处理根路径
+        if self.pattern == "/" {
+            // 根路径应该匹配空路径或根路径
+            let pathComponents = url.pathComponents.filter { $0 != "/" && !$0.isEmpty }
+            return (parameters: [String: Any](), isExactMatch: pathComponents.isEmpty)
+        }
+        
         let pathComponents = url.pathComponents.filter { $0 != "/" && !$0.isEmpty }
         guard !pathComponents.isEmpty else { return ([String: Any](), false) }
 

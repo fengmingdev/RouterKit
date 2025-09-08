@@ -354,7 +354,7 @@ class InterceptorViewController: UIViewController, Routable {
     // MARK: - Actions
 
     @objc private func authInterceptorTapped() {
-        Router.push(to: "/InterceptorModule/auth", parameters: [
+        Router.push(to: "/InterceptorModule/authInterceptor", parameters: [
             "source": "interceptorMain",
             "timestamp": Date().timeIntervalSince1970
         ], completion: { _ in })

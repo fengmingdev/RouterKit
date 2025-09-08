@@ -148,10 +148,13 @@ public final class Router: NSObject, @unchecked Sendable {
     public func registerRoute(_ pattern: String, for routableType: Routable.Type, permission: RoutePermission? = nil, priority: Int = 0, scheme: String = "") async throws {
         let routePattern = try RoutePattern(pattern)
 
-        // 检查模块是否已注册
-        if !(await state.isModuleLoaded(routePattern.moduleName)) {
-            log("路由注册失败：模块未注册 - \(routePattern.moduleName)", level: .error)
-            throw RouterError.moduleNotRegistered(routePattern.moduleName)
+        // 检查模块是否已注册（除了根路径）
+        if pattern != "/" {
+            let isModuleLoaded = await state.isModuleLoaded(routePattern.moduleName)
+            if !isModuleLoaded {
+                log("路由注册失败：模块未注册 - \(routePattern.moduleName)", level: .error)
+                throw RouterError.moduleNotRegistered(routePattern.moduleName)
+            }
         }
 
         try await state.registerRoute(routePattern, routableType: routableType, permission: permission, priority: priority, scheme: scheme)
@@ -272,8 +275,8 @@ public final class Router: NSObject, @unchecked Sendable {
                     line: Int = #line,
                     function: String = #function) {
         DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
             Task {
-                guard let self = self else { return }
                 let enableLogging = await self.state.getEnableLogging()
                 if enableLogging {
                     await RouterLogger.shared.log(message, level: level, file: file, line: line, function: function)

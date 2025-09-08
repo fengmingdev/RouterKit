@@ -19,9 +19,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
         // 创建窗口并设置根控制器
         window = UIWindow(windowScene: windowScene)
-        let rootVC = ViewController()
-        let navVC = UINavigationController(rootViewController: rootVC)
-        window?.rootViewController = navVC
+        let tabBarController = TabBarController()
+        window?.rootViewController = tabBarController
         window?.makeKeyAndVisible()
     }
 

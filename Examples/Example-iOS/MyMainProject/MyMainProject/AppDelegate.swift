@@ -15,6 +15,7 @@ import ParameterPassingModule
 import InterceptorModule
 import ErrorHandlingModule
 import AnimationModule
+import Foundation
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -29,10 +30,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // 注册模块
         registerModules()
 
-        // 创建窗口和TabBar根视图控制器
+        // 创建窗口并设置初始根视图控制器为ViewController
         window = UIWindow(frame: UIScreen.main.bounds)
-        let tabBarController = TabBarController()
-        window?.rootViewController = tabBarController
+        let rootVC = ViewController()
+        let navVC = UINavigationController(rootViewController: rootVC)
+        window?.rootViewController = navVC
         window?.makeKeyAndVisible()
 
         // 处理启动时的深度链接
@@ -100,6 +102,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     private func registerModules() {
         print("AppDelegate: 开始注册模块")
         Task {
+            // 注册根模块
+            print("AppDelegate: 开始注册 RootModule")
+            let rootModule = RootModule()
+            await Router.shared.registerModule(rootModule)
+            print("AppDelegate: RootModule 注册成功")
+            
             // 注册登录模块
             print("AppDelegate: 开始注册 LoginModule")
             let userModule = LoginModule()
@@ -148,6 +156,24 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
              let animationModule = AnimationModule()
              await Router.shared.registerModule(animationModule)
              print("AppDelegate: AnimationModule 注册成功")
+             
+             // 等待所有模块注册完成后再注册路由
+             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                 Task {
+                     // 注册根路径路由 - 使用 TabBarController 作为根视图控制器
+                     print("AppDelegate: 开始注册根路径路由")
+                     do {
+                         // 使用动态路由注册根路径，避免模块检查
+                         try await Router.shared.registerDynamicRoute("/", for: TabBarController.self)
+                         print("AppDelegate: 根路径路由注册成功")
+                     } catch {
+                         print("AppDelegate: 根路径路由注册失败 - \(error)")
+                     }
+                     
+                     // 注册首页路由 - 这个已经在 RootModule 中注册了，所以这里不需要再注册
+                     print("AppDelegate: 首页路由已在 RootModule 中注册")
+                 }
+             }
         }
     }
 

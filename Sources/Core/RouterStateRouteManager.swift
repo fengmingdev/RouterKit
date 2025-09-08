@@ -47,9 +47,20 @@ actor RouterStateRouteManager {
             throw RouterError.routeAlreadyExists(routePattern.pattern)
         }
         
+        // 对于根路径，不需要检查模块是否已注册
+        if routePattern.pattern != "/" {
+            // 检查模块是否已注册（除了根路径）
+            // 注意：这个检查实际上在 RouterCore.swift 中已经完成，这里不需要重复检查
+        }
+        
         let routeEntry = RouteEntry(routableType: routableType, priority: priority, scheme: scheme)
         routes[routePattern] = routeEntry
-        routesByModule[routePattern.moduleName, default: []].append(routePattern)
+        
+        // 根路径不需要添加到模块路由列表中
+        if routePattern.pattern != "/" {
+            routesByModule[routePattern.moduleName, default: []].append(routePattern)
+        }
+        
         await routeTrie.insert(routePattern, priority: priority)
         
         if let permission = permission {

@@ -61,7 +61,7 @@ class ViewController: UIViewController, Routable {
     @objc private func loginButtonTapped() {
          // 跳转到登录页面
          print("ViewController: 尝试跳转到 /LoginModule/login")
-        Router.push(to: "/LoginModule/login")
+        Router.replace(to: "/LoginModule/login")
      }
 
      @objc private func messageButtonTapped() {
