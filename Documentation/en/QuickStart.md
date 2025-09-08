@@ -50,6 +50,19 @@ router.navigate(to: "/user/123")
 router.navigate(to: "/settings", options: [.animated(true), .presentationStyle(.modal)])
 ```
 
+## Version Update Log
+
+### 1.0.1 (2025-09-08)
+
+- Fixed route name mismatch in ParameterPassingModule
+- Fixed syntax error in TabBarController animateTabSelection method
+- Fixed case sensitivity issue in ErrorHandlingModule routes
+- Fixed UI constraint issues in HomeViewController that prevented quick navigation buttons from being clickable
+
+### 1.0.0 (2025-01-23)
+
+- Initial release
+
 ## Next Steps
 
 - Learn about [Core Concepts](CoreConcepts/)

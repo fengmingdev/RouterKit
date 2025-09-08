@@ -4,30 +4,40 @@ Modules are a way to organize routes and dependencies in RouterKit, making it ea
 
 ## Overview
 
-A module is an object that conforms to the `RouterModuleProtocol`. It can register its own routes, declare dependencies on other modules, and provide a way to initialize its components.
+A module is an object that conforms to the `ModuleProtocol`. It can register its own routes, declare dependencies on other modules, and provide a way to initialize its components.
 
 ## Creating a Module
 
-To create a module, conform to the `RouterModuleProtocol`:
+To create a module, conform to the `ModuleProtocol`:
 
 ```swift
-class UserModule: RouterModuleProtocol {
-    var name: String {
-        return "User"
+class UserModule: ModuleProtocol {
+    var moduleName: String = "User"
+    var dependencies: [ModuleDependency] = []
+    var lastUsedTime: Date = Date()
+
+    required init() {}
+
+    func load(completion: @escaping (Bool) -> Void) {
+        // Module loading logic
+        print("User module loaded")
+        completion(true)
     }
 
-    var dependencies: [String] {
-        return ["Auth"] // Depends on Auth module
+    func unload() {
+        // Cleanup resources
+        print("User module unloaded")
     }
 
-    func registerRoutes(with router: Router) {
-        router.register("/user/profile") { context in
-            return UserProfileViewController()
-        }
+    func suspend() {
+        // Suspend module
+        print("User module suspended")
+    }
 
-        router.register("/user/settings") { context in
-            return UserSettingsViewController()
-        }
+    func resume() {
+        // Resume module
+        lastUsedTime = Date()
+        print("User module resumed")
     }
 }
 ```
@@ -38,7 +48,9 @@ Register modules with the router using the `registerModule` method:
 
 ```swift
 let userModule = UserModule()
-router.registerModule(userModule)
+Task {
+    await router.registerModule(userModule)
+}
 ```
 
 ## Module Dependencies
@@ -46,14 +58,40 @@ router.registerModule(userModule)
 Modules can declare dependencies on other modules. The router will ensure that dependencies are registered before the module itself:
 
 ```swift
-class OrderModule: RouterModuleProtocol {
-    var name: String { return "Order" }
+class OrderModule: ModuleProtocol {
+    var moduleName: String = "Order"
+    var dependencies: [ModuleDependency] = [
+        ModuleDependency(name: "User", version: "1.0.0"),
+        ModuleDependency(name: "Product", version: "1.0.0")
+    ]
+    var lastUsedTime: Date = Date()
 
-    // Depends on User and Product modules
-    var dependencies: [String] { return ["User", "Product"] }
+    required init() {}
 
-    func registerRoutes(with router: Router) {
+    func load(completion: @escaping (Bool) -> Void) {
         // Register order-related routes
+        Task {
+            do {
+                try await Router.shared.registerRoute("/order/history", for: OrderHistoryViewController.self)
+                try await Router.shared.registerRoute("/order/detail", for: OrderDetailViewController.self)
+                completion(true)
+            } catch {
+                completion(false)
+            }
+        }
+    }
+
+    func unload() {
+        // Cleanup resources
+    }
+
+    func suspend() {
+        // Suspend module
+    }
+
+    func resume() {
+        // Resume module
+        lastUsedTime = Date()
     }
 }
 ```
@@ -63,23 +101,54 @@ class OrderModule: RouterModuleProtocol {
 You can provide custom initialization logic for your modules:
 
 ```swift
-class PaymentModule: RouterModuleProtocol {
-    var name: String { return "Payment" }
-    var dependencies: [String] { return [] }
+class PaymentModule: ModuleProtocol {
+    var moduleName: String = "Payment"
+    var dependencies: [ModuleDependency] = []
+    var lastUsedTime: Date = Date()
+    private let apiKey: String
 
-    init(apiKey: String) {
+    required init(apiKey: String) {
+        self.apiKey = apiKey
         // Initialize payment service with apiKey
         PaymentService.shared.apiKey = apiKey
     }
 
-    func registerRoutes(with router: Router) {
+    required init() {
+        self.apiKey = ""
+    }
+
+    func load(completion: @escaping (Bool) -> Void) {
         // Register payment-related routes
+        Task {
+            do {
+                try await Router.shared.registerRoute("/payment/checkout", for: CheckoutViewController.self)
+                try await Router.shared.registerRoute("/payment/confirmation", for: PaymentConfirmationViewController.self)
+                completion(true)
+            } catch {
+                completion(false)
+            }
+        }
+    }
+
+    func unload() {
+        // Cleanup resources
+    }
+
+    func suspend() {
+        // Suspend module
+    }
+
+    func resume() {
+        // Resume module
+        lastUsedTime = Date()
     }
 }
 
 // Register with custom initialization
 let paymentModule = PaymentModule(apiKey: "your-api-key")
-router.registerModule(paymentModule)
+Task {
+    await router.registerModule(paymentModule)
+}
 ```
 
 ## Benefits of Modules
@@ -95,3 +164,16 @@ router.registerModule(paymentModule)
 - Declare explicit dependencies
 - Keep module initialization simple
 - Avoid tight coupling between modules
+
+## Version Update Log
+
+### 1.0.1 (2025-09-08)
+
+- Fixed route name mismatch in ParameterPassingModule
+- Fixed syntax error in TabBarController animateTabSelection method
+- Fixed case sensitivity issue in ErrorHandlingModule routes
+- Fixed UI constraint issues in HomeViewController that prevented quick navigation buttons from being clickable
+
+### 1.0.0 (2025-01-23)
+
+- Initial release

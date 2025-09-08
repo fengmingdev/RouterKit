@@ -18,21 +18,34 @@ RouterKit supports multiple installation methods:
 Add the following to your Package.swift file:
 ```swift
 dependencies: [
-    .package(url: "https://github.com/yourusername/RouterKit.git", from: "1.0.0")
+    .package(url: "https://github.com/yourusername/RouterKit.git", from: "1.0.1")
 ]
 ```
 
 ### Cocoapods
 Add the following to your Podfile:
 ```ruby
-pod 'RouterKit-Swift', '~> 1.0.0'
+pod 'RouterKit-Swift', '~> 1.0.1'
 ```
 
 ### Carthage
 Add the following to your Cartfile:
 ```
-github "yourusername/RouterKit" ~> 1.0.0
+github "yourusername/RouterKit" ~> 1.0.1
 ```
+
+## Version Update Log
+
+### 1.0.1 (2025-09-08)
+
+- Fixed route name mismatch in ParameterPassingModule
+- Fixed syntax error in TabBarController animateTabSelection method
+- Fixed case sensitivity issue in ErrorHandlingModule routes
+- Fixed UI constraint issues in HomeViewController that prevented quick navigation buttons from being clickable
+
+### 1.0.0 (2025-01-23)
+
+- Initial release
 
 ## Contributing
 

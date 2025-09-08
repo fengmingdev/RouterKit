@@ -16,13 +16,13 @@ RouterKit支持多种安装方式：
 ### CocoaPods
 
 1. 确保已安装CocoaPods
-2. 在Podfile中添加: `pod 'RouterKit-Swift'`
+2. 在Podfile中添加: `pod 'RouterKit-Swift', '~> 1.0.1'`
 3. 运行: `pod install`
 
 ### Carthage
 
 1. 确保已安装Carthage
-2. 在Cartfile中添加: `github "fengmingdev/RouterKit"`
+2. 在Cartfile中添加: `github "fengmingdev/RouterKit" ~> 1.0.1`
 3. 运行: `carthage update --platform iOS`
 
 ## 基本使用
@@ -78,6 +78,19 @@ router.navigate(to: "/user/:id", parameters: parameters) { result in
 Router.push(to: "/home")
 Router.present(to: "/user/123")
 ```
+
+## 版本更新日志
+
+### 1.0.1 (2025-09-08)
+
+- 修复了ParameterPassingModule中的路由名称不匹配问题
+- 修复了TabBarController中animateTabSelection方法的语法错误
+- 修复了ErrorHandlingModule中路由大小写不匹配的问题
+- 修复了HomeViewController中快速导航按钮无法点击的UI约束问题
+
+### 1.0.0 (2025-01-23)
+
+- 初始版本发布
 
 ## 下一步
 

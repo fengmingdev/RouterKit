@@ -25,7 +25,7 @@ Alternatively, add the following to your Package.swift file:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/fengmingdev/RouterKit.git", from: "1.0.0")
+    .package(url: "https://github.com/fengmingdev/RouterKit.git", from: "1.0.1")
 ]
 ```
 
@@ -35,7 +35,7 @@ dependencies: [
 3. Add the following line to your Podfile:
 
 ```ruby
-pod 'RouterKit-Swift', '~> 1.0'
+pod 'RouterKit-Swift', '~> 1.0.1'
 ```
 
 4. Run `pod install` to install the dependency
@@ -47,7 +47,7 @@ pod 'RouterKit-Swift', '~> 1.0'
 3. Add the following line to your Cartfile:
 
 ```
-github "fengmingdev/RouterKit" ~> 1.0
+github "fengmingdev/RouterKit" ~> 1.0.1
 ```
 
 4. Run `carthage update --platform iOS` to build the framework
@@ -112,6 +112,19 @@ class AuthInterceptor: BaseInterceptor {
 // Register the interceptor
 router.addInterceptor(AuthInterceptor())
 ```
+
+## Version Update Log
+
+### 1.0.1 (2025-09-08)
+
+- Fixed route name mismatch in ParameterPassingModule
+- Fixed syntax error in TabBarController animateTabSelection method
+- Fixed case sensitivity issue in ErrorHandlingModule routes
+- Fixed UI constraint issues in HomeViewController that prevented quick navigation buttons from being clickable
+
+### 1.0.0 (2025-01-23)
+
+- Initial release
 
 ## Documentation
 

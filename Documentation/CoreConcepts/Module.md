@@ -9,7 +9,7 @@
 ```swift
 class UserModule: ModuleProtocol {
     let name = "User"
-    let version = "1.0.0"
+    let version = "1.0.1"
     
     func initialize() async throws {
         // 模块初始化逻辑
@@ -69,9 +69,10 @@ Task {
 
 模块具有完整的生命周期管理：
 
-1. `initialize()`: 模块初始化，在注册时调用
-2. `registerRoutes()`: 注册路由，在初始化后调用
-3. `cleanup()`: 清理资源，在注销时调用
+1. `load()`: 模块加载，在注册时调用
+2. `unload()`: 模块卸载，在注销时调用
+3. `suspend()`: 模块暂停
+4. `resume()`: 模块恢复
 
 ## 模块通信
 
@@ -112,3 +113,16 @@ Task {
     await router.unregisterModule("Admin")
 }
 ```
+
+## 版本更新日志
+
+### 1.0.1 (2025-09-08)
+
+- 修复了ParameterPassingModule中的路由名称不匹配问题
+- 修复了TabBarController中animateTabSelection方法的语法错误
+- 修复了ErrorHandlingModule中路由大小写不匹配的问题
+- 修复了HomeViewController中快速导航按钮无法点击的UI约束问题
+
+### 1.0.0 (2025-01-23)
+
+- 初始版本发布
